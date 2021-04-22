@@ -49,7 +49,7 @@ cp_idconvert <- function(data, id_type){
     uniKeys <- (AnnotationDbi::keys(org.Hs.eg.db::org.Hs.eg.db, keytype="SYMBOL")) %>%  c(., AnnotationDbi::keys(org.Mm.eg.db::org.Mm.eg.db, keytype="SYMBOL")) #Take all gene symbols from DB 
     Hs_g <- AnnotationDbi::select(org.Hs.eg.db::org.Hs.eg.db, keys=uniKeys, columns="UNIPROT", keytype="SYMBOL") %>% bind_rows(., AnnotationDbi::select(org.Mm.eg.db::org.Mm.eg.db, keys=uniKeys, columns="UNIPROT", keytype="SYMBOL"))
     
-    df <- left_join(data, Hs_g, by = c("ID" = "UNIPROT")) %>% select(-ID) %>% select(1, SYMBOL, everything()) %>% rename(., ID = SYMBOL) %>% filter(is.na(ID) == FALSE)
+    df <- left_join(data, Hs_g, by = c("ID" = "UNIPROT")) %>% select(-ID) %>% select(SYMBOL, everything()) %>% rename(., ID = SYMBOL) %>% filter(is.na(ID) == FALSE)
     
     message("Status: Converted Uniprot to Gene names")
     
@@ -58,7 +58,7 @@ cp_idconvert <- function(data, id_type){
     uniKeys <- (AnnotationDbi::keys(org.Hs.eg.db::org.Hs.eg.db, keytype="SYMBOL")) %>%  c(., AnnotationDbi::keys(org.Mm.eg.db::org.Mm.eg.db, keytype="SYMBOL")) #Take all gene symbols from DB 
     Hs_g <- AnnotationDbi::select(org.Hs.eg.db::org.Hs.eg.db, keys=uniKeys, columns="ENSEMBL", keytype="SYMBOL") %>% bind_rows(., AnnotationDbi::select(org.Mm.eg.db::org.Mm.eg.db, keys=uniKeys, columns="ENSEMBL", keytype="SYMBOL"))
     
-    df <- left_join(data, Hs_g, by = c("ID" = "ENSEMBL")) %>% select(-ID) %>% select(1, SYMBOL, everything()) %>% rename(., ID = SYMBOL) %>% filter(is.na(ID) == FALSE)
+    df <- left_join(data, Hs_g, by = c("ID" = "ENSEMBL")) %>% select(-ID) %>% select(SYMBOL, everything()) %>% rename(., ID = SYMBOL) %>% filter(is.na(ID) == FALSE)
     
     message("Status: Converted Ensembl Gene to Gene names")
     
@@ -81,3 +81,20 @@ cp_dl_table_csv <- function(table, filename){
   )
 }
 
+
+#entrezid mapping fuction
+entrezmapping <- function(species){
+  
+  if(species == "mouse"){entrezids <- as.list(org.Mm.eg.db::org.Mm.egALIAS2EG)}
+  
+  if(species == "human"){entrezids <- as.list(org.Hs.eg.db::org.Hs.egALIAS2EG)}
+  
+  entrezids <- entrezids[!is.na(entrezids)]
+  entrezids <- sapply(entrezids,'[[',1)
+  entrezids <- cbind(entrezids) %>% as.data.frame() %>% mutate(ID = row.names(.)) %>% `colnames<-`(c("EntrezGeneID", "ID"))
+  
+  return(entrezids)
+  
+  
+  
+}
