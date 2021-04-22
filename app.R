@@ -1,8 +1,11 @@
 library(shiny)
 library(shinydashboard)
+library(fgsea)
+library(data.table) 
+library(ggplot2)
 library(dplyr)
-library(org.Mm.eg.db)
-# Define UI for data upload app ----
+
+# Define UI foror data upload app ----
 ui <- dashboardPage(
   
   # App title ----
@@ -12,25 +15,32 @@ ui <- dashboardPage(
   
   # Sidebar panel for inputs ----
   dashboardSidebar(
-    
+    sidebarMenu(
+      menuItem("START", tabName = "start", icon = icon("start")),
     # Input: Select a file ----
     fileInput("file", "Choose CSV File",
               multiple = FALSE,
               accept = c("text/csv",
                          "text/comma-separated-values,text/plain",
                          ".csv"))
+    )
   ),
   
   # Main panel for displaying outputs ----
   dashboardBody(
-    
+    tabItems(
+      tabItem(tabName = "start")
+    ),
     # Output: Data file ----
     tableOutput("contents"),
     downloadButton("dl_table", "Download your table here!"),
     
     # Output: Boxplot ----
     plotOutput("boxplot_fc"), 
-    plotOutput("histogram_pvalue")
+    plotOutput("histogram_pvalue"),
+    
+    # Output: fgsea ----
+    plotOutput("fgseainput")
     
   )
   
@@ -41,6 +51,7 @@ server <- function(input, output) {
   
   # Create a reactiveValues object called mydata
   mydata <- reactiveValues()
+  forout_reactive <- reactiveValues()
   
   # The following code runs when a file is uploaded
   # We want to load data, and annotate it with our databases here
@@ -81,58 +92,76 @@ server <- function(input, output) {
         }
       )
     }
+  #df is user's uploaded value
     
-    entrezids <- as.list(org.Mm.egALIAS2EG)
+    x1 <<- df
+  #converting row1's name to ID
     names(df)[1] <- "ID"
+    
+    x2 <<- df
+  #pre-made function
+  #converting gene names to entrez id
     df <- cp_idconvert(df, cp_idtype(df$ID))
-    #insert Jeff's functino (cp_idconverter)
-      #changing uniprot id to gene names
-    #provided_data <- read.csv(file='database/knocktf.csv')
     
-    #df <- left_join(df, provided_data, by = c('genenames'='genenames'))
-      #Q= why do we need to add $protdf onto mydata
-     
+    x3 <<- df
+  # joining the user's data with mouse gene id
+    df <- left_join(df, entrezmapping("mouse"))
     
+    x4 <<- df
+  ## this step for
+    array <- df %>% select(3) %>% unlist()
+    names(array) <- df %>% select(EntrezGeneID) %>% unlist()
+    array <- sort(array)
     
-    #provided_data <- read.csv(file='knocktf/differential expression of genes in all datasets.txt')
-    #df <- left_join(df, provided_data, by = c('ID'='genenames'))
-  
+    x5 <<- array
+    
+   
+#attaching df to "mydata" reactive value
     mydata$protdf <- df 
+    mydata$fgsea_array <- array 
+    
     print(df)
   })
+   #Fgsea enrichment analysis
+  output$fgseainput <- renderPlot({
+    
+    req(mydata$fgsea_array)
+    
+    fgseaRes <- fgsea(pathways =examplePathways,
+          stats = mydata$fgsea_array,
+          minSize = 15,
+          maxSize = 500)
+    
+    topPathwaysUp <- fgseaRes[ES > 0][head(order(pval), n=10), pathway]
+    topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=10), pathway]
+    topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
+    
+    return(plotGseaTable(examplePathways[topPathways], exampleRanks, fgseaRes, 
+                  gseaParam=0.5))
+    
+  })
   
-  
+
   
   
   # The table we make can use our reactive protdf dataframe
   output$contents <- renderTable({
 
     req(mydata$protdf)
-    
+  #returns the epitome of uploaded value
     return(head(mydata$protdf)) 
     #Q=why do we need this line of command
     
   })
-  # The table we make can use our reactive protdf dataframe
-  output$contents <- renderTable({
-    
-    req(mydata$protdf)
-    
-    return(head(mydata$protdf)) 
-    #Q=why do we need this line of command
-    
-  })
+  
+
   
   # Render a histogram of pvalues
   output$histogram_pvalue <- renderPlot({
     
     req(mydata$protdf)
     
-    x1 <<- mydata$protdf
-    
-    print(head(mydata$protdf))
-    
-    return(hist(mydata$protdf[,3]))
+    return(hist(mydata$protdf[,2]))
   })
   
   # Render a boxplot of fold-change
@@ -140,7 +169,7 @@ server <- function(input, output) {
     
     req(mydata$protdf)
     
-    return(boxplot(mydata$protdf[,4]))    
+    return(boxplot(mydata$protdf[,3]))    
   })
   
   # Downloader for the table
