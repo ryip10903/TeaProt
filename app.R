@@ -16,20 +16,53 @@ ui <- dashboardPage(
   # Sidebar panel for inputs ----
   dashboardSidebar(
     sidebarMenu(
-      menuItem("START", tabName = "start", icon = icon("start")),
-    # Input: Select a file ----
-    fileInput("file", "Choose CSV File",
-              multiple = FALSE,
-              accept = c("text/csv",
-                         "text/comma-separated-values,text/plain",
-                         ".csv"))
-    )
+      # Input: Select a file ----
+      fileInput("file", "Choose CSV File",
+                multiple = FALSE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      selectInput("species", "Choose Species",
+                  c("human", "drosophila", "mouse")),
+      
+      menuItem("START", tabName = "start", icon = icon("bookmark"),
+               menuSubItem("Human Genome", tabName = "humang"),
+               menuSubItem("Mouse Genome", tabName = "mouseg"),
+               menuSubItem("Drosophila Genome", tabName = "drosophilag"), 
+               menuSubItem("Zebrafish Genome", tabName = "zebrafishg")
+               ),
+      menuItem("Pvalue", tabName = "PVALUE", icon= icon("info-circle")),
+      
+      menuItem("Analysis", tabName = "ANALYSIS", icon = icon("bookmark"),
+              menuSubItem("Drug Interaction", tabName = "dugi"),
+              menuSubItem("Gene Location", tabName = "genel"),
+              menuSubItem("Gene Pathway", tabName = "genep")),
+      
+     menuItem("youtube", icon= icon("file-code-o"),
+              href= "https://www.youtube.com/")
+
+
+    ),
+    sidebarMenuOutput("menu")
   ),
   
   # Main panel for displaying outputs ----
   dashboardBody(
+    fluidRow(
+      box(
+        menuItem("Graph Type", tabName = "grapht"),
+                menuSubItem("Boxplot", tabName = "boxp"),
+                menuSubItem("Bargraph", tabName = "barg"),
+      )
+    ),
+    
+  #creating tabs on the side bar
     tabItems(
-      tabItem(tabName = "start")
+      tabItem(tabName = "start"),
+      tabItem(tabName = "PVALUE",
+              h2("P-value Analysis")
+              ),
+      tabItem(tabName = "ANALYSIS")
     ),
     # Output: Data file ----
     tableOutput("contents"),
@@ -48,6 +81,11 @@ ui <- dashboardPage(
 
 # Define server logic to read selected file ----
 server <- function(input, output) {
+  output$menu <- renderMenu({
+    sidebarMenu(
+      menuItem("Menu item", icon = icon("calender"))
+    )
+  })
   
   # Create a reactiveValues object called mydata
   mydata <- reactiveValues()
