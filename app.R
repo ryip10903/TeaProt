@@ -4,7 +4,8 @@ library(fgsea)
 library(data.table) 
 library(ggplot2)
 library(dplyr)
-
+library(shinyWidgets)
+library(markdown)
 # Define UI foror data upload app ----
 ui <- dashboardPage(
   
@@ -22,21 +23,27 @@ ui <- dashboardPage(
                 accept = c("text/csv",
                            "text/comma-separated-values,text/plain",
                            ".csv")),
+      
+      
       selectInput("species", "Choose Species",
                   c("human", "drosophila", "mouse")),
       
-      menuItem("START", tabName = "start", icon = icon("bookmark"),
-               menuSubItem("Human Genome", tabName = "humang"),
-               menuSubItem("Mouse Genome", tabName = "mouseg"),
-               menuSubItem("Drosophila Genome", tabName = "drosophilag"), 
-               menuSubItem("Zebrafish Genome", tabName = "zebrafishg")
-               ),
-      menuItem("Pvalue", tabName = "PVALUE", icon= icon("info-circle")),
+    #Start analysis button
+    actionButton("button", "Start your analysis!"),
+      
+    #sidebar Items
+      menuItem("START", tabName = "start", icon = icon("bookmark")),
+      
+      menuItem("View Data", tabName = "view", icon = icon("bookmark")),
+      
       
       menuItem("Analysis", tabName = "ANALYSIS", icon = icon("bookmark"),
+              menuSubItem("Pvalue", tabName = "PVALUE", icon= icon("info-circle")),
+              menuSubItem("Forchange", tabName = "forchange"),
               menuSubItem("Drug Interaction", tabName = "dugi"),
               menuSubItem("Gene Location", tabName = "genel"),
-              menuSubItem("Gene Pathway", tabName = "genep")),
+              menuSubItem("Gene Pathway", tabName = "genep"),
+              menuSubItem("Fgsea analysis", tabName = "fgseaa")),
       
      menuItem("youtube", icon= icon("file-code-o"),
               href= "https://www.youtube.com/")
@@ -48,39 +55,52 @@ ui <- dashboardPage(
   
   # Main panel for displaying outputs ----
   dashboardBody(
-    fluidRow(
-      box(
-        menuItem("Graph Type", tabName = "grapht"),
-                menuSubItem("Boxplot", tabName = "boxp"),
-                menuSubItem("Bargraph", tabName = "barg"),
-      )
-    ),
+    #fluidRow()
     
-  #creating tabs on the side bar
+    
+  #UI layout for each tab
     tabItems(
-      tabItem(tabName = "start"),
+      
+      
+      
+      tabItem(tabName = "start",
+              div(class = "jumbotron", style="background-image: url(dna-banner.svg); 
+                  background-size: cover;", HTML("<center><h1>Welcome to TeaProt!</h1></center>"),
+                  HTML("<center><p>For the annotation of Protein/transcript data.</p></center>")),
+                  includeMarkdown("README.md")),
+      
+      tabItem(tabName = "view", h2("View Your Data Here"), tableOutput("contents")),
+      
       tabItem(tabName = "PVALUE",
-              h2("P-value Analysis")
+              h2("P-value Analysis",  plotOutput("histogram_pvalue"),
+                 plotOutput("density_pvalue"))
               ),
-      tabItem(tabName = "ANALYSIS")
+      tabItem(tabName = "ANALYSIS"),
+      tabItem(tabName = "dugi", 
+              h2("Drug interaction Analysis")),
+      tabItem(tabName = "genel", 
+              h2("Gene location Analysis")),
+      tabItem(tabName = "genep",
+              h2("Gene pathway Analysis")),
+      tabItem(tabName = "fgseaa", h2("Fgsea Analysis"), plotOutput("fgseainput")),
+      tabItem(tabName = "forchange", h2("For change Analysis"),  plotOutput("boxplot_fc"),
+              downloadButton("dl_table", "Download your table here!"))
     ),
     # Output: Data file ----
-    tableOutput("contents"),
-    downloadButton("dl_table", "Download your table here!"),
+    
+    
     
     # Output: Boxplot ----
-    plotOutput("boxplot_fc"), 
-    plotOutput("histogram_pvalue"),
+   
+   
     
     # Output: fgsea ----
-    plotOutput("fgseainput")
     
-  )
-  
-)
+    
+  ))
 
 # Define server logic to read selected file ----
-server <- function(input, output) {
+server <- function(input, output, session) {
   output$menu <- renderMenu({
     sidebarMenu(
       menuItem("Menu item", icon = icon("calender"))
@@ -96,7 +116,29 @@ server <- function(input, output) {
   # We first load the data based on its extension (.csv, .txt, .xlsx)
   # Then we load our databases and join the user data with out provided databases
   # Finally we save the df as a reactive object
-  observeEvent(input$file, {
+  observeEvent(input$button, {
+    
+    #adding a progress bar
+    dat <- data.frame(x = numeric(0), y = numeric(0))
+    
+    withProgress(message = 'Making plot', value = 0, {
+      # Number of times we'll go through the loop
+      n <- 10
+      
+      for (i in 1:n) {
+        # Each time through the loop, add another row of data. This is
+        # a stand-in for a long-running computation.
+        dat <- rbind(dat, data.frame(x = rnorm(1), y = rnorm(1)))
+        
+        # Increment the progress bar, and update the detail text.
+        incProgress(1/n, detail = paste("Doing part", i))
+        
+        # Pause for 0.1 seconds to simulate a long computation.
+        Sys.sleep(0.1)
+      }
+    })
+    
+    plot(dat$x, dat$y)
     
     print("file loaded")
     
@@ -159,7 +201,13 @@ server <- function(input, output) {
     mydata$fgsea_array <- array 
     
     print(df)
+    
+    sendSweetAlert(session = session, title = "Notification", 
+                   text = "Your analysis has completed! Click on View Data and Analysis ", type = "success",
+                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
+    
   })
+  
    #Fgsea enrichment analysis
   output$fgseainput <- renderPlot({
     
@@ -177,6 +225,9 @@ server <- function(input, output) {
     return(plotGseaTable(examplePathways[topPathways], exampleRanks, fgseaRes, 
                   gseaParam=0.5))
     
+    
+    
+    
   })
   
 
@@ -187,7 +238,7 @@ server <- function(input, output) {
 
     req(mydata$protdf)
   #returns the epitome of uploaded value
-    return(head(mydata$protdf)) 
+    return(mydata$protdf[1:10,])
     #Q=why do we need this line of command
     
   })
@@ -202,6 +253,13 @@ server <- function(input, output) {
     return(hist(mydata$protdf[,2]))
   })
   
+  # A Density plot for P value
+  output$density_pvalue <- renderPlot({
+    
+    req(mydata$protdf)
+    
+    return(ggplot(mydata$protdf,aes(y=pvalue, x=for_change)) + geom_point() )
+  })
   # Render a boxplot of fold-change
   output$boxplot_fc <- renderPlot({
     
