@@ -10,6 +10,7 @@ library(clusterProfiler)
 library(ReactomePA)
 library(dplyr)
 library(DT)
+library(shinycssloaders)
 
 
 # Define UI foror data upload app ----
@@ -35,7 +36,7 @@ ui <- dashboardPage( skin = 'black',
                   c("human", "drosophila", "mouse")),
       
     #Start analysis button
-    actionButton("button", 'Start here!', style='font-weight:600' ),
+    actionButton("button", 'Start Here!', style='font-weight:600' ),
       
     #sidebar Items
       menuItem("START", tabName = "start", icon = icon("bookmark")),
@@ -82,8 +83,9 @@ ui <- dashboardPage( skin = 'black',
               tabName = "PVALUE",
               h2("P-value Analysis"),  
         fluidRow(
-          box( title = 'Histogram', plotOutput("histogram_pvalue")),
-          box( title = 'Density Plot', plotOutput("density_pvalue")))),
+          box( title = 'Histogram', plotOutput("histogram_pvalue") %>% withSpinner()),
+          box( title = 'Density Plot', plotOutput("density_pvalue") %>% withSpinner() 
+               ))),
               
     
       tabItem(tabName = "ANALYSIS"),
@@ -91,34 +93,38 @@ ui <- dashboardPage( skin = 'black',
       tabItem(
         actionButton('buttond', 'Start Analysis'),#style = 'background-color:MistyRose;'),
         tabName = "dugi", 
-              h2("Drug Interaction Analysis"), plotOutput("bargraph_drug")),
+              h2("Drug Interaction Analysis"), plotOutput("bargraph_drug") %>% withSpinner()),
       
       tabItem(
         actionButton('buttong', 'Start Analysis'),
         tabName = "genel", 
               h2("Gene Location Analysis"), 
-              fluidRow( box(width =12, plotOutput('CP_location')))
+              fluidRow( box(width =12, plotOutput('CP_location') %>% withSpinner()))
                        ),
     
       tabItem(
         actionButton('buttonpa', 'Start Analysis'),
+        selectInput('pgoinput', 'Choose P_value cutoff',
+                    c(0.001, 0.01, 0.05)),
         tabName = "genep",
               h2("Gene Pathway Analysis"), 
-              fluidRow(column(12, box(plotOutput('goinput'), width =12)),
+              fluidRow(column(12, box(plotOutput('goinput')%>% withSpinner(), width =12)),
               column(12, box(tableOutput('gotable'), width = 12))),
-        plotOutput('reactome')),
+        ),
               
       tabItem(
-        actionButton('buttonfg', 'Start Analysis'),
+        actionButton('buttonfg', 'Start Analysis'), 
+        selectInput("fgnumber", "Choose Number of Pahways to be seen",
+                    c(10, 20, 30)),
         tabName = "fgseaa", h2("Fgsea Analysis"), 
-        fluidRow(
-          box(width = 12, plotOutput("fgseainput")))),
+        fluidRow(column(12,
+          box(width = 12, plotOutput("fgseainput") %>% withSpinner() )))),
       
       tabItem(
         actionButton('buttonf', 'Start Analysis'),
         tabName = "forchange", h2("Foldchange Analysis"), 
-              fluidRow(column(6, box(title="Boxplot",plotOutput("boxplot_fc"),width = 12)), 
-                       column(6,plotOutput('zplot_fc',height = 500))),
+              fluidRow(column(6, box(title="Boxplot",plotOutput("boxplot_fc") %>% withSpinner(),width = 12)), 
+                       column(6,plotOutput('zplot_fc',height = 500) %>% withSpinner())),
               downloadButton("dl_table", "Download your table here!"))
       
     ),
@@ -149,8 +155,8 @@ server <- function(input, output, session) {
     
     
     sendSweetAlert(session = session, title = "Notification", 
-                   button = FALSE,
-                   text = "Analysis is now in Progress ", type = "warning",
+                   text = "Data Mapping in progress :) ", type = "warning",
+                   btn_labels = NA,
                    closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
     
@@ -172,29 +178,6 @@ server <- function(input, output, session) {
     db_hpa <<- db_hpa %>% mutate(CP_loc = sapply(strsplit(db_hpa$CP_loc, ";"), function(x) paste(unique(x), collapse = ";"))) %>% dplyr::select(-ENSG, -Uniprot, -`HyperLOPIT location`, -Reliability) %>% dplyr::rename("HPA_IF_protein_location" = `IF main protein location`)
     
    
-    
-    #adding a progress bar
-    #dat <- data.frame(x = numeric(0), y = numeric(0))
-    
-    #withProgress(message = 'Making plot', value = 0, {
-      # Number of times we'll go through the loop
-      #n <- 10
-      
-      #for (i in 1:n) {
-        # Each time through the loop, add another row of data. This is
-        # a stand-in for a long-running computation.
-        #dat <- rbind(dat, data.frame(x = rnorm(1), y = rnorm(1)))
-        
-        # Increment the progress bar, and update the detail text.
-        #incProgress(1/n, detail = paste("Doing part", i))
-        
-        # Pause for 0.1 seconds to simulate a long computation.
-        #Sys.sleep(0.1)
-      #}
-    #})
-    
-    #plot(dat$x, dat$y)
-    
     print("file loaded")
     
     if(sub("^.*\\.","", input$file$datapath) == "csv"){
@@ -286,7 +269,9 @@ server <- function(input, output, session) {
     
     
     z1 <<- mydata$CP_summary
-    mydata$protdf <- df 
+    df[,2] <- formatC(df[,2], digits = 3)
+    df[,3] <- formatC(df[,3], digits = 3, format = 'e') 
+    mydata$protdf <- df
     mydata$array <- array 
     mydata$go_array <-array
     
@@ -294,7 +279,7 @@ server <- function(input, output, session) {
     
     
     sendSweetAlert(session = session, title = "Notification", 
-                   text = "Your analysis has completed! Click on View Data and Analysis ", type = "success",
+                   text = "Mapping has completed! You can start your Analysis! ", type = "success",
                    closeOnClickOutside = TRUE, showCloseButton = FALSE)
     
   })
@@ -302,9 +287,10 @@ server <- function(input, output, session) {
   #Genelocation analysis
   observeEvent(input$buttong, {
     
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Analysis is now in progress ", type = "waning",
-                   closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    #sendSweetAlert(session = session, title = "Notification", 
+                   #text = "Analysis is now in progress ", type = "waning",
+                   #btn_labels = NA,
+                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
     output$CP_location <- renderPlot ({
     
@@ -313,9 +299,9 @@ server <- function(input, output, session) {
     return(ggplot(mydata$CP_summary, aes(x=frequency, y=reorder(CP_loc, frequency)))
            + geom_bar(stat = "identity") + theme_minimal() + labs(x = "Frequency", y = ""))
       
-      sendSweetAlert(session = session, title = "Notification", 
-                     text = "Your analysis has completed!", type = "success",
-                     closeOnClickOutside = TRUE, showCloseButton = FALSE)
+      #sendSweetAlert(session = session, title = "Notification", 
+                     #text = "Your analysis has completed!", type = "success",
+                     #closeOnClickOutside = TRUE, showCloseButton = FALSE)
   })})
 
     
@@ -330,15 +316,15 @@ server <- function(input, output, session) {
     
     output$fgseainput <- renderPlot({
     
-    req(mydata$array)
+    req(mydata$array, input$fgnumber)
     
     fgseaRes <- fgsea(pathways =examplePathways,
           stats = mydata$array,
           minSize = 15,
           maxSize = 500)
     
-    topPathwaysUp <- fgseaRes[ES > 0][head(order(pval), n=10), pathway]
-    topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=10), pathway]
+    topPathwaysUp <- fgseaRes[ES > 0][head(order(pval), n=as.numeric(input$fgnumber)), pathway]
+    topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=as.numeric(input$fgnumber)), pathway]
     topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
     
     sendSweetAlert(session = session, title = "Notification", 
@@ -364,7 +350,7 @@ server <- function(input, output, session) {
     
     output$goinput <- renderPlot({
     
-    req(mydata$go_array)
+    req(mydata$go_array, input$pgoinput)
     #add message "starting analysis", disable the function of closing
     geneList <- mydata$go_array
     gene <-  names(geneList)[abs(geneList) > 1]
@@ -376,7 +362,7 @@ server <- function(input, output, session) {
                     OrgDb         = org.Mm.eg.db::org.Mm.eg.db,
                     ont           = "CC",
                     pAdjustMethod = "BH",
-                    pvalueCutoff  = 0.01,
+                    pvalueCutoff  = as.numeric(input$pgoinput),
                     qvalueCutoff  = 0.05,
                     readable      = TRUE)
     
@@ -398,21 +384,23 @@ server <- function(input, output, session) {
   })})
   
   #Reactome pathway analysis
-    output$reactome <- renderPlot({
+    #output$reactome <- renderPlot({
     
-      req(mydata$go_array)
+      #req(mydata$go_array)
       
-      geneList <- mydata$go_array
-      gene <-  names(geneList)[abs(geneList) > 1]
+      #geneList <- mydata$go_array
+      #gene <-  names(geneList)[abs(geneList) > 1]
       
-      return(viewPathway("E2F mediated regulation of DNA replication", 
-                readable = TRUE, 
-                foldChange = geneList))
-    })
+      #return(viewPathway("E2F mediated regulation of DNA replication", 
+                #readable = TRUE, 
+                #foldChange = geneList))
+    #})
   
     
   # Creates an overview of our mapped data
   output$contents <- DT::renderDT({
+    
+    options(scrollX=TRUE)
 
     req(mydata$protdf)
   
@@ -426,10 +414,10 @@ server <- function(input, output, session) {
   # Render a histogram of pvalues
   observeEvent(input$buttonp, {
     
-    sendSweetAlert(session = session, title = "Notification", 
-                  button = FALSE,
-                  text = "Analysis in Progress ", type = "warning",
-                  closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    #sendSweetAlert(session = session, title = "Notification", 
+                  #button = FALSE,
+                  #text = "Analysis in Progress ", type = "warning",
+                  #closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
     output$histogram_pvalue <- renderPlot({
     
@@ -445,23 +433,23 @@ server <- function(input, output, session) {
     
     req(mydata$protdf)
     
-    return(ggplot(mydata$protdf,aes(y=pvalue, x=for_change)) + geom_point() +
+    return(ggplot(mydata$protdf,aes(y=-log10(pvalue), x=fold_change)) + geom_point() +
              ggtitle("Foldchange VS P_value") + theme(plot.title = element_text(
                hjust = 0.5, size = 15, face = 'bold', color = 'blue')
                
              )) 
-    sendSweetAlert(session = session, title = "Notification", 
-                   button = FALSE,
-                   text = "Analysis has completed ", type = "success",
-                   closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    #sendSweetAlert(session = session, title = "Notification", 
+                  # button = FALSE,
+                   #text = "Analysis has completed ", type = "success",
+                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
   })})
   # Render a boxplot of fold-change
   observeEvent(input$buttonf, {
     
-    sendSweetAlert(session = session, title = "Notification", 
-                   button = FALSE,
-                   text = "Analysis in Progress ", type = "warning",
-                   closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    #sendSweetAlert(session = session, title = "Notification", 
+                   #button = FALSE,
+                   #text = "Analysis in Progress ", type = "warning",
+                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
     output$boxplot_fc <- renderPlot({
     
@@ -477,20 +465,20 @@ server <- function(input, output, session) {
     
     return(ggplot(mydata$protdf, aes(y=fold_change, x=pvalue)) + geom_polygon()
                   )
-    sendSweetAlert(session = session, title = "Notification", 
-                   button = FALSE,
-                   text = "Analysis in Progress ", type = "success",
-                   closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    #sendSweetAlert(session = session, title = "Notification", 
+                   #button = FALSE,
+                   #text = "Analysis in Progress ", type = "success",
+                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
   })})
   
   # Render a bargraph for drug interaction data
   
   observeEvent(input$buttond, {
     
-    sendSweetAlert(session = session, title = "Notification", 
-                   button = FALSE,
-                   text = "Analysis in Progress ", type = "warning",
-                   closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    #sendSweetAlert(session = session, title = "Notification", 
+                   #button = FALSE,
+                   #text = "Analysis in Progress ", type = "warning",
+                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
     output$bargraph_drug <- renderPlot({
     
@@ -498,10 +486,10 @@ server <- function(input, output, session) {
     
     return(ggplot(mydata$protdf, aes(x= !is.na(drug_name))) + geom_bar())
       
-      sendSweetAlert(session = session, title = "Notification", 
-                     button = FALSE,
-                     text = "Analysis has Completed ", type = "success",
-                     closeOnClickOutside = FALSE, showCloseButton = FALSE)
+      #sendSweetAlert(session = session, title = "Notification", 
+                    # button = FALSE,
+                     #text = "Analysis has Completed ", type = "success",
+                     #closeOnClickOutside = FALSE, showCloseButton = FALSE)
   })})
   
 
