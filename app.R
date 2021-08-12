@@ -11,6 +11,8 @@ library(ReactomePA)
 library(dplyr)
 library(DT)
 library(shinycssloaders)
+library(msigdbr)
+library(GSEABase)
 
 
 # Define UI foror data upload app ----
@@ -50,7 +52,9 @@ ui <- dashboardPage( skin = 'black',
               menuSubItem("Drug Interaction", tabName = "dugi"),
               menuSubItem("Gene Location", tabName = "genel"),
               menuSubItem("Gene Pathway", tabName = "genep"),
-              menuSubItem("Fgsea analysis", tabName = "fgseaa")),
+              menuSubItem("Fgsea analysis", tabName = "fgseaa"),
+              menuSubItem('vissE analysis', tabName = 'vvss')
+              ),
       
      menuItem("youtube", icon= icon("file-code-o"),
               href= "https://www.youtube.com/")
@@ -125,7 +129,14 @@ ui <- dashboardPage( skin = 'black',
         tabName = "forchange", h2("Foldchange Analysis"), 
               fluidRow(column(6, box(title="Boxplot",plotOutput("boxplot_fc") %>% withSpinner(),width = 12)), 
                        column(6,plotOutput('zplot_fc',height = 500) %>% withSpinner())),
-              downloadButton("dl_table", "Download your table here!"))
+              downloadButton("dl_table", "Download your table here!")),
+      
+      tabItem(
+        actionButton('buttonv', 'Start Analysis'),
+        tabName = 'vvss', h2('Visse Analysis'),
+          fluidRow(column(12, box(title = 'Visse Plot', plotOutput('visseinput')
+                                 %>% withSpinner(), width = 12)))
+      )
       
     ),
     
@@ -269,8 +280,7 @@ server <- function(input, output, session) {
     
     
     z1 <<- mydata$CP_summary
-    df[,2] <- formatC(df[,2], digits = 3)
-    df[,3] <- formatC(df[,3], digits = 3, format = 'e') 
+
     mydata$protdf <- df
     mydata$array <- array 
     mydata$go_array <-array
@@ -305,9 +315,98 @@ server <- function(input, output, session) {
   })})
 
     
+  ## visse analysis ##
   
+  observeEvent(input$buttonv, {
+    
+    output$visseinput <- renderPlot({
+    
+    # Create input data 
+    d <- mydata$protdf[,c(1,3)] %>% filter(!is.nan(ID) & !is.na(fold_change)) %>% dplyr::rename(gene = 1, fc = 2) %>% group_by(gene) %>% summarize(fc = mean(fc))
+    
+    geneList <- d[,2] %>% unlist
+    names(geneList) <- as.character(d[,1] %>% unlist %>% stringr::str_to_title())
+    geneList <- base::sort(geneList, decreasing = TRUE)
+    
+    
+    #load the MSigDB from the msigdb package
+    msigdb_mm = msigdb.v7.2.mm.SYM()
+    #append KEGG gene-sets
+    msigdb_mm = appendKEGG(msigdb_mm)
+    #dplyr::select h, c2, and c5 collections (recommended)
+    msigdb_mm = subsetCollection(msigdb_mm, c('h', 'c2', 'c5'))
+    
+    # Create an input gene set for the GSEA function
+    genedb <- geneIds(msigdb_mm)
+    msig_db_gsea <- data.frame(gs_name = rep(names(genedb), lengths(genedb)), gene_symbol = unlist(genedb, use.names=TRUE))
+    
+    # Run GSEA
+    set.seed(36)
+    
+    em <- GSEA(geneList, TERM2GENE = msig_db_gsea, pvalueCutoff = 0.05)
+    geneset_res = em@result$Description
+    
+    #create a GeneSetCollection using the gene-set analysis results
+    geneset_gsc = msigdb_mm[geneset_res]
+    
+    #compute gene-set overlap
+    gs_ovlap = computeMsigOverlap(geneset_gsc, thresh = 0.25)
+    #create an overlap network
+    gs_ovnet = computeMsigNetwork(gs_ovlap, msigdb_mm)
+    #plot the network
+    set.seed(36) #set seed for reproducible layout
+    plotMsigNetwork(gs_ovnet)
+    
+    ## -----------------------------------------------------------------------------
+    #simulate gene-set statistics
+    geneset_stats = em@result$NES
+    names(geneset_stats) = geneset_res
+    head(geneset_stats)
+    
+    #plot the network and overlay gene-set statistics
+    set.seed(36) #set seed for reproducible layout
+    plotMsigNetwork(gs_ovnet, genesetStat = geneset_stats)
+    
+    #identify clusters
+    grps = cluster_walktrap(gs_ovnet)
+    #extract clustering results
+    grps = groups(grps)
+    #sort by cluster size
+    grps = grps[order(sapply(grps, length), decreasing = TRUE)]
+    #plot the top 12 clusters
+    set.seed(36) #set seed for reproducible layout
+    plotMsigNetwork(gs_ovnet, markGroups = grps[1:6], genesetStat = geneset_stats)
+    
+    ## -----------------------------------------------------------------------------
+    #compute and plot the results of text-mining
+    #using gene-set Names
+    plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Name')
+    #using gene-set Short descriptions
+    plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Short')
+    
+    set.seed(36)
+    
+    genes = names(geneList)
+    gene_stats = unname(geneList)
+    names(gene_stats) = genes
+    
+    #plot the gene-level statistics
+    plotGeneStats(gene_stats, msigdb_mm, grps[1:6]) +
+      geom_hline(yintercept = 0, colour = 2, lty = 2)
+    
+    #create independent plots
+    set.seed(36) #set seed for reproducible layout
+    p1 = plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Name')
+    p2 = plotMsigNetwork(gs_ovnet, markGroups = grps[1:6], genesetStat = geneset_stats)
+    p3 = plotGeneStats(gene_stats, msigdb_mm, grps[1:6]) +
+      geom_hline(yintercept = 0, colour = 2, lty = 2)
+    
+    #combine using functions from ggpubr
+    return(ggarrange(p1, p2, p3, ncol = 3, common.legend = TRUE, legend = 'bottom'))
+  })})
+
   
-   #Fgsea enrichment analysis
+  ## Fgsea enrichment analysis ##
   observeEvent(input$buttonfg, {
     
     sendSweetAlert(session = session, title = "Notification", 
@@ -352,13 +451,13 @@ server <- function(input, output, session) {
     
     req(mydata$go_array, input$pgoinput)
     #add message "starting analysis", disable the function of closing
-    geneList <- mydata$go_array
-    gene <-  names(geneList)[abs(geneList) > 1]
+    gene_List <- mydata$go_array
+    gene <-  names(gene_List)[abs(gene_List) > 1]
     
     
     
     CLP$ego <- enrichGO(gene      = gene,
-                    universe      = names(geneList),
+                    universe      = names(gene_List),
                     OrgDb         = org.Mm.eg.db::org.Mm.eg.db,
                     ont           = "CC",
                     pAdjustMethod = "BH",
@@ -383,29 +482,20 @@ server <- function(input, output, session) {
     
   })})
   
-  #Reactome pathway analysis
-    #output$reactome <- renderPlot({
-    
-      #req(mydata$go_array)
-      
-      #geneList <- mydata$go_array
-      #gene <-  names(geneList)[abs(geneList) > 1]
-      
-      #return(viewPathway("E2F mediated regulation of DNA replication", 
-                #readable = TRUE, 
-                #foldChange = geneList))
-    #})
+  
   
     
   # Creates an overview of our mapped data
   output$contents <- DT::renderDT({
     
-    options(scrollX=TRUE)
-
     req(mydata$protdf)
+    
+    df <- mydata$protdf
+    
+    df[,2] <- formatC(df[,2], digits = 2, format = 'e')
+    df[,3] <- formatC(df[,3], digits = 3) 
   
-    return(mydata$protdf)
-   
+    return(DT::datatable(df, options = list(scrollX=TRUE)))
     
   })
   
@@ -435,23 +525,15 @@ server <- function(input, output, session) {
     
     return(ggplot(mydata$protdf,aes(y=-log10(pvalue), x=fold_change)) + geom_point() +
              ggtitle("Foldchange VS P_value") + theme(plot.title = element_text(
-               hjust = 0.5, size = 15, face = 'bold', color = 'blue')
-               
-             )) 
-    #sendSweetAlert(session = session, title = "Notification", 
-                  # button = FALSE,
-                   #text = "Analysis has completed ", type = "success",
-                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
+               hjust = 0.5, size = 15, face = 'bold', color = 'blue')) )
+
   })})
   # Render a boxplot of fold-change
   observeEvent(input$buttonf, {
     
-    #sendSweetAlert(session = session, title = "Notification", 
-                   #button = FALSE,
-                   #text = "Analysis in Progress ", type = "warning",
-                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
+   
     
-    output$boxplot_fc <- renderPlot({
+   output$boxplot_fc <- renderPlot({
     
     req(mydata$protdf)
     
