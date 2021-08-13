@@ -11,9 +11,12 @@ library(ReactomePA)
 library(dplyr)
 library(DT)
 library(shinycssloaders)
-library(msigdbr)
+library(msigdb)
 library(GSEABase)
+library(vissE)
+library(igraph)
 
+ 
 
 # Define UI foror data upload app ----
 ui <- dashboardPage( skin = 'black',
@@ -78,14 +81,22 @@ ui <- dashboardPage( skin = 'black',
               div(class = "jumbotron", style="background-image: url(dna-banner.svg); 
                   background-size: cover;", HTML("<center><h1>Welcome to TeaProt!</h1></center>"),
                   HTML("<center><p>For the annotation of Protein/transcript data.</p></center>")),
-                  includeMarkdown("README.md")),
+              fluidRow(
+                box( title = 'Instructions', status = 'primary',
+                  includeMarkdown("README.md")))),
       
       tabItem(tabName = "view", h2("View Your Data Here"), DT::DTOutput("contents")),
       
+      ## P value
       tabItem(
+       ##enclose the rest of the code with renderUI
         actionButton('buttonp', 'Start Analysis!'),
               tabName = "PVALUE",
-              h2("P-value Analysis"),  
+              h2("P-value Analysis"), 
+        fluidRow ( 
+          box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
+                   HTML("<p align='justify'> Analysis are performed to analyze the P values
+                        of your data.</p>"))),
         fluidRow(
           box( title = 'Histogram', plotOutput("histogram_pvalue") %>% withSpinner()),
           box( title = 'Density Plot', plotOutput("density_pvalue") %>% withSpinner() 
@@ -94,13 +105,27 @@ ui <- dashboardPage( skin = 'black',
     
       tabItem(tabName = "ANALYSIS"),
       
+      ##Drug interaction
       tabItem(
         actionButton('buttond', 'Start Analysis'),#style = 'background-color:MistyRose;'),
         tabName = "dugi", 
-              h2("Drug Interaction Analysis"), plotOutput("bargraph_drug") %>% withSpinner()),
+              h2("Drug Interaction Analysis"), 
+        fluidRow ( 
+          box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
+              HTML("<p align='justify'> Analysis are performed to identify the number of genes
+                        that have known drug interactions.</p>"))),
+        fluidRow(
+          box(title = 'Plot', plotOutput("bargraph_drug") %>% withSpinner()))),
       
+      #Gene Location
       tabItem(
         actionButton('buttong', 'Start Analysis'),
+        
+        fluidRow ( 
+          box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
+              HTML("<p align='justify'> Analysis are performed to show the localization
+                        of the genes in your data.</p>"))),
+        
         tabName = "genel", 
               h2("Gene Location Analysis"), 
               fluidRow( box(width =12, plotOutput('CP_location') %>% withSpinner()))
@@ -127,12 +152,22 @@ ui <- dashboardPage( skin = 'black',
       tabItem(
         actionButton('buttonf', 'Start Analysis'),
         tabName = "forchange", h2("Foldchange Analysis"), 
+        
+        fluidRow ( 
+          box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
+              HTML("<p align='justify'> Analysis are performed to analyze the foldchange
+                        of your data.</p>"))),
+        
               fluidRow(column(6, box(title="Boxplot",plotOutput("boxplot_fc") %>% withSpinner(),width = 12)), 
-                       column(6,plotOutput('zplot_fc',height = 500) %>% withSpinner())),
+                       column(6,box(plotOutput('zplot_fc',height = 500) %>% withSpinner()))),
               downloadButton("dl_table", "Download your table here!")),
       
       tabItem(
         actionButton('buttonv', 'Start Analysis'),
+        selectInput('DBselect', 'Options', c('c1','c2','c3','c4','c5','c6','c7', 'c8',
+                                             'h'), 
+                    selected = c('h', 'c2', 'c5'),
+                    multiple=TRUE, selectize=TRUE),
         tabName = 'vvss', h2('Visse Analysis'),
           fluidRow(column(12, box(title = 'Visse Plot', plotOutput('visseinput')
                                  %>% withSpinner(), width = 12)))
@@ -319,8 +354,13 @@ server <- function(input, output, session) {
   
   observeEvent(input$buttonv, {
     
+    sendSweetAlert(session = session, title = "Notification", 
+                   text = "Analysis in progress! Please be patient", type = "warning",
+                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
+    
     output$visseinput <- renderPlot({
     
+      
     # Create input data 
     d <- mydata$protdf[,c(1,3)] %>% filter(!is.nan(ID) & !is.na(fold_change)) %>% dplyr::rename(gene = 1, fc = 2) %>% group_by(gene) %>% summarize(fc = mean(fc))
     
@@ -330,11 +370,11 @@ server <- function(input, output, session) {
     
     
     #load the MSigDB from the msigdb package
-    msigdb_mm = msigdb.v7.2.mm.SYM()
+    msigdb_mm =  msigdb::msigdb.v7.2.mm.SYM()
     #append KEGG gene-sets
     msigdb_mm = appendKEGG(msigdb_mm)
     #dplyr::select h, c2, and c5 collections (recommended)
-    msigdb_mm = subsetCollection(msigdb_mm, c('h', 'c2', 'c5'))
+    msigdb_mm = subsetCollection(msigdb_mm, input$DBselect)
     
     # Create an input gene set for the GSEA function
     genedb <- geneIds(msigdb_mm)
@@ -355,7 +395,7 @@ server <- function(input, output, session) {
     gs_ovnet = computeMsigNetwork(gs_ovlap, msigdb_mm)
     #plot the network
     set.seed(36) #set seed for reproducible layout
-    plotMsigNetwork(gs_ovnet)
+    ###plotMsigNetwork(gs_ovnet)
     
     ## -----------------------------------------------------------------------------
     #simulate gene-set statistics
@@ -365,7 +405,7 @@ server <- function(input, output, session) {
     
     #plot the network and overlay gene-set statistics
     set.seed(36) #set seed for reproducible layout
-    plotMsigNetwork(gs_ovnet, genesetStat = geneset_stats)
+    ###plotMsigNetwork(gs_ovnet, genesetStat = geneset_stats)
     
     #identify clusters
     grps = cluster_walktrap(gs_ovnet)
@@ -375,14 +415,14 @@ server <- function(input, output, session) {
     grps = grps[order(sapply(grps, length), decreasing = TRUE)]
     #plot the top 12 clusters
     set.seed(36) #set seed for reproducible layout
-    plotMsigNetwork(gs_ovnet, markGroups = grps[1:6], genesetStat = geneset_stats)
+    ###plotMsigNetwork(gs_ovnet, markGroups = grps[1:6], genesetStat = geneset_stats)
     
     ## -----------------------------------------------------------------------------
     #compute and plot the results of text-mining
     #using gene-set Names
-    plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Name')
+    ###plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Name')
     #using gene-set Short descriptions
-    plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Short')
+    ###plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Short')
     
     set.seed(36)
     
@@ -391,8 +431,8 @@ server <- function(input, output, session) {
     names(gene_stats) = genes
     
     #plot the gene-level statistics
-    plotGeneStats(gene_stats, msigdb_mm, grps[1:6]) +
-      geom_hline(yintercept = 0, colour = 2, lty = 2)
+    ##plotGeneStats(gene_stats, msigdb_mm, grps[1:6]) +
+      ##geom_hline(yintercept = 0, colour = 2, lty = 2)
     
     #create independent plots
     set.seed(36) #set seed for reproducible layout
@@ -409,13 +449,15 @@ server <- function(input, output, session) {
   ## Fgsea enrichment analysis ##
   observeEvent(input$buttonfg, {
     
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Analysis in Progress", type = "warning",
-                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
+    if(!exists('mydata$array')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
     
-    output$fgseainput <- renderPlot({
     
     req(mydata$array, input$fgnumber)
+    
+    sendSweetAlert(session = session, title = "Notification",
+                   btn_labels = NA,
+                   text = "Analysis in Progress", type = "warning",
+                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
     
     fgseaRes <- fgsea(pathways =examplePathways,
           stats = mydata$array,
@@ -426,19 +468,26 @@ server <- function(input, output, session) {
     topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=as.numeric(input$fgnumber)), pathway]
     topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
     
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Your analysis has completed!", type = "success",
-                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
     
-    return(plotGseaTable(examplePathways[topPathways], exampleRanks, fgseaRes, 
-                  gseaParam=0.5))
+    mydata$fgseaplot <- (plotGseaTable(examplePathways[topPathways], exampleRanks, fgseaRes, 
+                  gseaParam=0.5, render = FALSE))
+    
+    f1 <<- mydata$fgseaplot
     
     
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Analysis has completed!", type = "success",
-                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
+                   closeOnClickOutside = TRUE, showCloseButton = TRUE)
     
-  })})
+    
+  })
+  
+  output$fgseainput <- renderPlot({
+    
+    req(mydata$fgseaplot)
+    plot(mydata$fgseaplot)
+  })
+  
   
   #Gene Ontology Analysis
   observeEvent(input$buttonpa, {
