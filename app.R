@@ -15,8 +15,10 @@ library(msigdb)
 library(GSEABase)
 library(vissE)
 library(igraph)
+library(ggpubr)
+#library(pubgr)
 
- 
+
 
 # Define UI foror data upload app ----
 ui <- dashboardPage( skin = 'black',
@@ -32,9 +34,9 @@ ui <- dashboardPage( skin = 'black',
       # Input: Select a file ----
       fileInput("file", "Choose CSV File",
                 multiple = FALSE,
-                accept = c("text/csv",
+                accept = c("text/csv", 
                            "text/comma-separated-values,text/plain",
-                           ".csv")),
+                           ".csv", '.xls', '.xlsx')),
       
       
       selectInput("species", "Choose Species",
@@ -79,6 +81,7 @@ ui <- dashboardPage( skin = 'black',
       
       tabItem(tabName = "start",
               div(class = "jumbotron", style="background-image: url(dna-banner.svg); 
+              background-color:white;
                   background-size: cover;", HTML("<center><h1>Welcome to TeaProt!</h1></center>"),
                   HTML("<center><p>For the annotation of Protein/transcript data.</p></center>")),
               fluidRow(
@@ -130,7 +133,7 @@ ui <- dashboardPage( skin = 'black',
               h2("Gene Location Analysis"), 
               fluidRow( box(width =12, plotOutput('CP_location') %>% withSpinner()))
                        ),
-    
+    #Gene pathway 
       tabItem(
         actionButton('buttonpa', 'Start Analysis'),
         selectInput('pgoinput', 'Choose P_value cutoff',
@@ -141,6 +144,7 @@ ui <- dashboardPage( skin = 'black',
               column(12, box(tableOutput('gotable'), width = 12))),
         ),
               
+      #Fgsea
       tabItem(
         actionButton('buttonfg', 'Start Analysis'), 
         selectInput("fgnumber", "Choose Number of Pahways to be seen",
@@ -149,6 +153,7 @@ ui <- dashboardPage( skin = 'black',
         fluidRow(column(12,
           box(width = 12, plotOutput("fgseainput") %>% withSpinner() )))),
       
+    #Foldchange
       tabItem(
         actionButton('buttonf', 'Start Analysis'),
         tabName = "forchange", h2("Foldchange Analysis"), 
@@ -162,6 +167,7 @@ ui <- dashboardPage( skin = 'black',
                        column(6,box(plotOutput('zplot_fc',height = 500) %>% withSpinner()))),
               downloadButton("dl_table", "Download your table here!")),
       
+    #Visse analysis
       tabItem(
         actionButton('buttonv', 'Start Analysis'),
         selectInput('DBselect', 'Options', c('c1','c2','c3','c4','c5','c6','c7', 'c8',
@@ -257,14 +263,18 @@ server <- function(input, output, session) {
       )
     }
   #df is user's uploaded value
-    
+    df <- as.data.frame(df)
     x1 <<- df
-  
+    
+    
   #converting the uploaded column names to match our commands
     names(df)[1] <- "ID"
     names(df)[2] <- 'pvalue'
     names(df)[3] <- 'fold_change'
     x2 <<- df
+    
+    df <- df %>% mutate(ID = sub("\\;.*", "", .$ID))
+    df <- df %>% mutate(ID = sub("\\:.*", "", .$ID))
   #pre-made function
   #converting gene names to entrez id
     df <- cp_idconvert(df, cp_idtype(df$ID))
@@ -321,21 +331,22 @@ server <- function(input, output, session) {
     mydata$go_array <-array
     
     
-    
-    
+    x <<- x %>% mutate(direction = case_when( (p < 0.05 & fold_change > 0) ~ "up", (q < 0.05 & cor < 0) ~ "down", TRUE ~ "NS"  ))
+  
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Mapping has completed! You can start your Analysis! ", type = "success",
                    closeOnClickOutside = TRUE, showCloseButton = FALSE)
     
   })
   
-  #Genelocation analysis
+  #Genelocation analysis --------------------------------------------
   observeEvent(input$buttong, {
     
-    #sendSweetAlert(session = session, title = "Notification", 
-                   #text = "Analysis is now in progress ", type = "waning",
-                   #btn_labels = NA,
-                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    if(!exists('mydata$CP_summary')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
+    
+    sendSweetAlert(session = session, title = "Notification", 
+                   text = "Analysis is now in progress ", type = "waning",
+                   closeOnClickOutside = TRUE, showCloseButton = TRUE)
     
     output$CP_location <- renderPlot ({
     
@@ -344,21 +355,23 @@ server <- function(input, output, session) {
     return(ggplot(mydata$CP_summary, aes(x=frequency, y=reorder(CP_loc, frequency)))
            + geom_bar(stat = "identity") + theme_minimal() + labs(x = "Frequency", y = ""))
       
-      #sendSweetAlert(session = session, title = "Notification", 
-                     #text = "Your analysis has completed!", type = "success",
-                     #closeOnClickOutside = TRUE, showCloseButton = FALSE)
+    
   })})
 
     
-  ## visse analysis ##
+  ## visse analysis --------------------------------------------
   
   observeEvent(input$buttonv, {
     
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Analysis in progress! Please be patient", type = "warning",
-                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
+    if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
     
-    output$visseinput <- renderPlot({
+    req(mydata$protdf)
+    sendSweetAlert(session = session, title = "Notification",
+                   btn_labels = NA,
+                   text = "Analysis in Progress, this will take approximately 10 minutes....", type = "warning",
+                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
+    
+    
     
       
     # Create input data 
@@ -386,6 +399,19 @@ server <- function(input, output, session) {
     em <- GSEA(geneList, TERM2GENE = msig_db_gsea, pvalueCutoff = 0.05)
     geneset_res = em@result$Description
     
+    if(nrow(em@result) < 1) {
+      sendSweetAlert(session = session, title = "Notification",
+        text = "Error,No enrichment found with GSEA", type = "error",
+       closeOnClickOutside = TRUE , showCloseButton = TRUE)}
+    validate(need(nrow(em@result)!=0, "Error, dataset contains 0 rows after filtering. "))
+    
+    z2 <<- em
+    
+    sendSweetAlert(session = session, title = "Notification",
+                   btn_labels = NA,
+                   text = "step1/4 has been completed", type = "warning",
+                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
+    
     #create a GeneSetCollection using the gene-set analysis results
     geneset_gsc = msigdb_mm[geneset_res]
     
@@ -395,9 +421,14 @@ server <- function(input, output, session) {
     gs_ovnet = computeMsigNetwork(gs_ovlap, msigdb_mm)
     #plot the network
     set.seed(36) #set seed for reproducible layout
-    ###plotMsigNetwork(gs_ovnet)
     
-    ## -----------------------------------------------------------------------------
+    sendSweetAlert(session = session, title = "Notification",
+                   btn_labels = NA,
+                   text = "step 1/4 has been completed", type = "warning",
+                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
+    
+    
+ 
     #simulate gene-set statistics
     geneset_stats = em@result$NES
     names(geneset_stats) = geneset_res
@@ -405,7 +436,7 @@ server <- function(input, output, session) {
     
     #plot the network and overlay gene-set statistics
     set.seed(36) #set seed for reproducible layout
-    ###plotMsigNetwork(gs_ovnet, genesetStat = geneset_stats)
+    
     
     #identify clusters
     grps = cluster_walktrap(gs_ovnet)
@@ -415,25 +446,18 @@ server <- function(input, output, session) {
     grps = grps[order(sapply(grps, length), decreasing = TRUE)]
     #plot the top 12 clusters
     set.seed(36) #set seed for reproducible layout
-    ###plotMsigNetwork(gs_ovnet, markGroups = grps[1:6], genesetStat = geneset_stats)
     
-    ## -----------------------------------------------------------------------------
-    #compute and plot the results of text-mining
-    #using gene-set Names
-    ###plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Name')
-    #using gene-set Short descriptions
-    ###plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Short')
+    sendSweetAlert(session = session, title = "Notification",
+                   btn_labels = NA,
+                   text = "step 2/4 has been done", type = "warning",
+                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
     
-    set.seed(36)
-    
+  
     genes = names(geneList)
     gene_stats = unname(geneList)
     names(gene_stats) = genes
     
-    #plot the gene-level statistics
-    ##plotGeneStats(gene_stats, msigdb_mm, grps[1:6]) +
-      ##geom_hline(yintercept = 0, colour = 2, lty = 2)
-    
+   
     #create independent plots
     set.seed(36) #set seed for reproducible layout
     p1 = plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Name')
@@ -441,12 +465,26 @@ server <- function(input, output, session) {
     p3 = plotGeneStats(gene_stats, msigdb_mm, grps[1:6]) +
       geom_hline(yintercept = 0, colour = 2, lty = 2)
     
+    sendSweetAlert(session = session, title = "Notification",
+                   btn_labels = NA,
+                   text = "step 3/4 has been done", type = "warning",
+                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
+    
     #combine using functions from ggpubr
-    return(ggarrange(p1, p2, p3, ncol = 3, common.legend = TRUE, legend = 'bottom'))
-  })})
+    mydata$visse1 <- ggarrange(p1, p2, p3, ncol = 3, common.legend = TRUE, legend = 'bottom')
+    
+    sendSweetAlert(session = session, title = "Notification",
+                   text = "Analysis is done!", type = "success",
+                   closeOnClickOutside = TRUE , showCloseButton = TRUE)
+  })
 
-  
-  ## Fgsea enrichment analysis ##
+  #visse UI
+  output$visseinput <- renderPlot({
+    req(mydata$visse1)
+    plot(mydata$visse1)
+  })
+    
+  ## Fgsea enrichment analysis ##---------------------------------------
   observeEvent(input$buttonfg, {
     
     if(!exists('mydata$array')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
@@ -489,17 +527,18 @@ server <- function(input, output, session) {
   })
   
   
-  #Gene Ontology Analysis
+  #Gene Ontology Analysis -----------------------------------------------
   observeEvent(input$buttonpa, {
     
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Analysis in progress!", type = "warning",
-                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
-    
-    output$goinput <- renderPlot({
+    if(!exists('mydata$go_array')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
     
     req(mydata$go_array, input$pgoinput)
-    #add message "starting analysis", disable the function of closing
+    
+    sendSweetAlert(session = session, title = "Notification",
+                   btn_labels = NA,
+                   text = "Analysis in Progress", type = "warning",
+                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
+    
     gene_List <- mydata$go_array
     gene <-  names(gene_List)[abs(gene_List) > 1]
     
@@ -514,25 +553,30 @@ server <- function(input, output, session) {
                     qvalueCutoff  = 0.05,
                     readable      = TRUE)
     
-    return(goplot(CLP$ego))
-  })
-    
-    
-  #Show the Gene Ontology result table
-    output$gotable <- renderTable({
-      
-      req(CLP$ego@result)
-    z3 <<- CLP$ego@result
-    return((CLP$ego@result))
-    
+    mydata$CLPG <-goplot(CLP$ego)
+    mydata$CLPT <- (CLP$ego@result)
+  
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Analysis has completed!", type = "success",
                    closeOnClickOutside = TRUE, showCloseButton = FALSE)
     
-  })})
+  })
+    
+    #Gene pathway UI-1
   
+  output$goinput <- renderPlot({ 
+    
+    req(mydata$CLPG)
+    plot(mydata$CLPG)
+    })
   
+  #Gene pathway  UI-2
+  output$gotable <- renderTable({
+    
+    req(mydata$CLPT)
   
+    plot((mydata$CLPT))
+  })
     
   # Creates an overview of our mapped data
   output$contents <- DT::renderDT({
@@ -541,8 +585,9 @@ server <- function(input, output, session) {
     
     df <- mydata$protdf
     
-    df[,2] <- formatC(df[,2], digits = 2, format = 'e')
-    df[,3] <- formatC(df[,3], digits = 3) 
+    df[,2] <- formatC(as.data.frame(df)[,2], digits = 2, format = 'e')
+  
+    df[,3] <- formatC(as.data.frame(df)[,3], digits = 3) 
   
     return(DT::datatable(df, options = list(scrollX=TRUE)))
     
@@ -550,66 +595,87 @@ server <- function(input, output, session) {
   
 
   
-  # Render a histogram of pvalues
+  # Render a histogram of pvalues----------------------------
   observeEvent(input$buttonp, {
     
-    #sendSweetAlert(session = session, title = "Notification", 
-                  #button = FALSE,
-                  #text = "Analysis in Progress ", type = "warning",
-                  #closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
     
-    output$histogram_pvalue <- renderPlot({
     
     req(mydata$protdf)
-    
-    return(hist(mydata$protdf[,2]))
       
+      sendSweetAlert(session = session, title = "Notification",
+                     btn_labels = NA,
+                     text = "Analysis in Progress", type = "warning",
+                     closeOnClickOutside = FALSE , showCloseButton = FALSE)
+    
+    mydata$pplot2 <- hist(mydata$protdf[,2])
       
-  })
-  
-  # A Density plot for P value
-  output$density_pvalue <- renderPlot({
-    
-    req(mydata$protdf)
-    
-    return(ggplot(mydata$protdf,aes(y=-log10(pvalue), x=fold_change)) + geom_point() +
+  # A Density plot for P value------------------------------
+ mydata$pplot1 <- ggplot(mydata$protdf,aes(y=-log10(pvalue), x=fold_change)) + geom_point() +
              ggtitle("Foldchange VS P_value") + theme(plot.title = element_text(
-               hjust = 0.5, size = 15, face = 'bold', color = 'blue')) )
+               hjust = 0.5, size = 15, face = 'bold', color = 'blue')) 
+    
+    sendSweetAlert(session = session, title = "Notification", 
+                   text = "Analysis has completed!", type = "success",
+                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
 
-  })})
-  # Render a boxplot of fold-change
+  })
+  #P value UI-1
+  output$density_pvalue <- renderPlot({ 
+    req(mydata$pplot1)
+    plot(mydata$pplot1)
+    })
+  
+  #P value UI-2
+  output$histogram_pvalue <- renderPlot({ 
+    req(mydata$pplot2)
+    plot(mydata$pplot2)
+    })
+  
+  # Render a boxplot of fold-change-------------------------------
   observeEvent(input$buttonf, {
     
-   
-    
-   output$boxplot_fc <- renderPlot({
+    if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
     
     req(mydata$protdf)
+     
+     sendSweetAlert(session = session, title = "Notification",
+                    btn_labels = NA,
+                    text = "Analysis in Progress", type = "warning",
+                    closeOnClickOutside = FALSE , showCloseButton = FALSE)
+     
     
-    return(boxplot(mydata$protdf[,3]))    
+    mydata$ffplot1 <-(mydata$protdf[,3])    
+  
+  # Render a cool plot of fold-change-----------------------------
+
+    mydata$ffplot2 <- ggplot(mydata$protdf, aes(y=fold_change, x=pvalue)) + geom_polygon()
+    
+    sendSweetAlert(session = session, title = "Notification", 
+                   text = "Analysis has completed!", type = "success",
+                   closeOnClickOutside = TRUE, showCloseButton = FALSE)              
+  
   })
   
-  # Render a cool plot of fold-change
-  output$zplot_fc <- renderPlot({
-    
-    req(mydata$protdf)
-    
-    return(ggplot(mydata$protdf, aes(y=fold_change, x=pvalue)) + geom_polygon()
-                  )
-    #sendSweetAlert(session = session, title = "Notification", 
-                   #button = FALSE,
-                   #text = "Analysis in Progress ", type = "success",
-                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
-  })})
+  #fold-change UI-1
+  output$boxplot_fc <- renderPlot({
+    req(mydata$ffplot1)
+    boxplot(mydata$ffplot1)
+  })
   
-  # Render a bargraph for drug interaction data
+  #fold-change UI-2
+  output$zplot_fc <- renderPlot({
+    req(mydata$ffplot2)
+    plot(mydata$ffplot2)
+    
+  })
+
+  
+  # Render a bargraph for drug interaction data----------------------------
   
   observeEvent(input$buttond, {
     
-    #sendSweetAlert(session = session, title = "Notification", 
-                   #button = FALSE,
-                   #text = "Analysis in Progress ", type = "warning",
-                   #closeOnClickOutside = FALSE, showCloseButton = FALSE)
+    
     
     output$bargraph_drug <- renderPlot({
     
@@ -617,13 +683,15 @@ server <- function(input, output, session) {
     
     return(ggplot(mydata$protdf, aes(x= !is.na(drug_name))) + geom_bar())
       
-      #sendSweetAlert(session = session, title = "Notification", 
-                    # button = FALSE,
-                     #text = "Analysis has Completed ", type = "success",
-                     #closeOnClickOutside = FALSE, showCloseButton = FALSE)
+      sendSweetAlert(session = session, title = "Notification", 
+                    button = FALSE,
+                     text = "Analysis has Completed ", type = "success",
+                     closeOnClickOutside = FALSE, showCloseButton = FALSE)
   })})
   
-
+  #Making columns used for contigency tabele
+ # x <- x %>% mutate(direction = case_when( (p < 0.05 & fold_change > 0) ~ "up", (q < 0.05 & cor < 0) ~ "down", TRUE ~ "NS"  ))
+#
  
   # Downloader for the table
   output$dl_table <- cp_dl_table_csv(mydata$protdf, "annotated_data.csv")
