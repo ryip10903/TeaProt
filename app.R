@@ -208,9 +208,7 @@ server <- function(input, output, session) {
                    closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
     
-  #Loading drug interaction data
-    db_dgidb <<- readRDS(file = "database/DGIdb_genename_drugname.Rds") %>% dplyr::select(drug_name, gene_name, interaction_claim_source, interaction_types) %>% mutate(gene_name = tolower(gene_name)) %>% `colnames<-`(c("drug_name", "gene_name", "dgi_interaction_claim_source", "dgi_interaction_types"))
-   
+
     # Load Human Protein Atlas, but edit to include ancestor localization terms for more accurate overlap
     db_hpa <- readRDS(file = "database/db_hpa.Rds")
     ancestors <- readxl::read_excel(path = 'database/localization_ancestors.xlsx' ) %>% 
@@ -283,6 +281,11 @@ server <- function(input, output, session) {
   #joining user's data with drug interaction data
    
     df <- df %>% mutate (ID = tolower(ID)) 
+    
+    #Loading drug interaction data
+    db_dgidb <<- readRDS(file = "database/DGIdb_genename_drugname.Rds") %>% dplyr::select(drug_name, gene_name) %>% mutate(gene_name = tolower(gene_name)) %>% `colnames<-`(c("drug_name", "gene_name"))
+    db_dgidb <<- db_dgidb %>% group_by(gene_name) %>% summarise(drug_name = paste(drug_name, collapse = "|"))
+    
     df <- left_join(df, db_dgidb, by = c("ID" = "gene_name"))
   
     x4 <<- df
@@ -313,12 +316,7 @@ server <- function(input, output, session) {
     
     x7 <<- go_array
    
-#attaching df to "mydata" reactive value
-  
-    mydata$CP_summary  <- df %>% tidyr:: separate_rows(CP_loc) %>% filter(CP_loc != "") %>% 
-      filter(CP_loc != "") %>% group_by(CP_loc) %>% summarise (frequency =n())
-      
-    z1 <<- mydata$CP_summary
+
     
     #Making columns used for contigency table
     df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (input$param_pval < 0.05 & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
@@ -578,17 +576,23 @@ server <- function(input, output, session) {
       
       if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
       
-      req(isolate(mydata$protdf), isolate(mydata$CP_summary))
+      req(isolate(mydata$protdf))
       
       sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
       
+      df <- mydata$protdf %>% tidyr::separate_rows(drug_name, sep = "\\|") %>% filter(drug_name != "") %>% 
+        filter(drug_name != "") %>% group_by(drug_name) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
+      
       p1 <- (mydata$protdf %>% dplyr::select(ID, drug_name) %>% mutate(drug_name = !is.na(drug_name)) %>% group_by(ID) %>% summarise(n = sum(drug_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
-      p2 <- ggplot(mydata$protdf %>% filter(!is.na(drug_name)) %>% group_by(drug_name) %>% summarise(frequency = n()) %>% slice_max(frequency, n = 40, with_ties = FALSE), aes(x=frequency, y=reorder(drug_name, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+      p2 <- ggplot(df, aes(x=frequency, y=reorder(drug_name, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
       
       mydata$plot_anno_dgi <- (p1 + p2)
       
+      df <- mydata$protdf %>% tidyr::separate_rows(CP_loc) %>% filter(CP_loc != "") %>% 
+        filter(CP_loc != "") %>% group_by(CP_loc) %>% summarise (frequency =n())
+      
       p1 <- (mydata$protdf %>% dplyr::select(ID, CP_loc) %>% mutate(CP_loc = !is.na(CP_loc)) %>% group_by(ID) %>% summarise(n = sum(CP_loc)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
-      p2 <- ggplot(mydata$CP_summary, aes(x=frequency, y=reorder(CP_loc, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+      p2 <- ggplot(df, aes(x=frequency, y=reorder(CP_loc, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
       
       mydata$plot_anno_loc <- (p1 + p2)
       
@@ -648,8 +652,6 @@ server <- function(input, output, session) {
       chisq <- chisq.test(contingency)
       
       mydata$chisq <- chisq
-      
-      y <<- mydata$chisq
       
       sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
       
