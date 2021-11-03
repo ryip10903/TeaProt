@@ -24,7 +24,6 @@ library(patchwork)
 #library(org.Dm.eg.db)
 
 
-
 # Define UI for data upload app ----
 ui <- dashboardPage( skin = 'black',
                      
@@ -33,24 +32,12 @@ ui <- dashboardPage( skin = 'black',
   
     dashboardHeader(title = tags$a(href='https://github.com/ryip10903/Protein_annotation_app', target = '_blank',
                                       tags$img(src=paste0("teaprot.svg"), height = "70%", width = "auto", align = "middle"))),
-  
+    
   
   # Sidebar panel for inputs ----
   dashboardSidebar(
     sidebarMenu(id = "tabs",
-      # Input: Select a file ----
-      fileInput("file", "Choose CSV File",
-                multiple = FALSE,
-                accept = c("text/csv", 
-                           "text/comma-separated-values,text/plain",
-                           ".csv", '.xls', '.xlsx')),
-      
-      
-      selectInput("species", "Choose Species",
-                  c("human", "mouse", "rat", "drosophila", "zebrafish")),
-      
-    #Start analysis button
-    actionButton("button", 'Start Here!', style='font-weight:600' ),
+     
       
     #sidebar Items
       menuItem("START", tabName = "start", icon = icon("bookmark")),
@@ -59,8 +46,8 @@ ui <- dashboardPage( skin = 'black',
       
       menuItem("Analysis", tabName = "ANALYSIS", icon = icon("bookmark"),
               menuSubItem("p-value & fold change", tabName = "PVALUE", icon= icon("info-circle")),
-              menuSubItem("annotations", tabName = "dugi"),
-              menuSubItem("Gene Pathway", tabName = "genep"),
+              menuSubItem("annotations", tabName = "dugi", icon= icon("chart-bar")),
+              menuSubItem("enrichment", tabName = "genep",icon= icon("ellipsis-v")),
               menuSubItem("Fgsea analysis", tabName = "fgseaa"),
               menuSubItem('vissE analysis', tabName = 'vvss')
               )
@@ -78,7 +65,7 @@ ui <- dashboardPage( skin = 'black',
     # The meta tags affect the search enginge results when looking for CoffeeProt
     tags$head(tags$meta(name = "description", content = "TeaProt is an easy to use and interactive tool to analyze proteomics data."),
               tags$meta(name = "keywords", content = "protein, proteomics, transcriptomics, analysis, visualization")),
-    
+
     
   #UI layout for each tab
     tabItems(
@@ -89,7 +76,24 @@ ui <- dashboardPage( skin = 'black',
                   background-size: cover;", HTML("<center><h1>Welcome to TeaProt!</h1></center>"),
                   HTML("<center><p>For the annotation of Protein/transcript data.</p></center>")),
               fluidRow(
-                box(status = 'primary', includeMarkdown("README.md")))),
+                box(status = 'primary', includeMarkdown("README.md")),
+                box(title = "inputs", status = 'primary', 
+                    # Input: Select a file ----
+                    fileInput("file", "Choose CSV File", multiple = FALSE, accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv", '.xls', '.xlsx')),
+                    
+                    # Input: Select a species ----
+                    selectInput("species", "Choose Species",
+                                c("human", "mouse", "rat", "drosophila", "zebrafish")),
+                    
+                    # Input: Select significance cutoff ----
+                    sliderTextInput(inputId = "param_pval", label = "Choose a p-value cutoff:", choices = c(1, 0.1, 0.05, 0.01, 0.001), selected = 0.05, grid = TRUE),
+                    sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = c(0, 1, 2, 3, 4, 5), selected = 1, grid = TRUE),
+                    
+                    verbatimTextOutput("param_text"),
+                    
+                    # Start analysis button ----
+                    actionButton("button", 'Start Here!', style='font-weight:600' )
+                    ))),
       
       tabItem(tabName = "view",        
               fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
@@ -124,14 +128,12 @@ ui <- dashboardPage( skin = 'black',
           box(title = 'Subcellular localization - Annotations', width = 12, plotOutput("bargraph_loc") %>% withSpinner()))),
       
     #Gene pathway 
-      tabItem(
-        actionButton('buttonpa', 'Start Analysis'),
-        selectInput('pgoinput', 'Choose P_value cutoff',
-                    c(0.001, 0.01, 0.05)),
-        tabName = "genep",
-              h2("Gene Pathway Analysis"), 
-              fluidRow(column(12, box(plotOutput('goinput')%>% withSpinner(), width =12)),
-              column(12, box(tableOutput('gotable'), width = 12))),
+      tabItem(tabName = "genep",
+        fluidRow(box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary', 
+        HTML("<p align='justify'> Analysis are performed to identify the number of genes
+                        that have known drug interactions.</p>"))),
+        
+        fluidRow( box(title = "results", plotOutput("contingency_loc") %>% withSpinner(), width = 12))
         ),
               
       #Fgsea
@@ -183,6 +185,18 @@ server <- function(input, output, session) {
   
   observe({
     print(input$tabs)
+  })
+  
+  observe({
+    print(input$file)
+    x <<- input$file
+  })
+  
+
+  
+
+  output$param_text <- renderText({
+    paste("Uploaded file: ", input$file[1], "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
   })
   
   observeEvent(input$button, {
@@ -304,10 +318,13 @@ server <- function(input, output, session) {
     mydata$CP_summary  <- df %>% tidyr:: separate_rows(CP_loc) %>% filter(CP_loc != "") %>% 
       filter(CP_loc != "") %>% group_by(CP_loc) %>% summarise (frequency =n())
       
-    
-    
     z1 <<- mydata$CP_summary
-
+    
+    #Making columns used for contigency table
+    df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (input$param_pval < 0.05 & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
+    
+    x6 <<- df 
+    
     mydata$protdf <- df
     mydata$array <- array 
     mydata$go_array <-array
@@ -489,57 +506,6 @@ server <- function(input, output, session) {
     plot(mydata$fgseaplot)
   })
   
-  
-  #Gene Ontology Analysis -----------------------------------------------
-  observeEvent(input$buttonpa, {
-    
-    if(!exists('mydata$go_array')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
-    
-    req(mydata$go_array, input$pgoinput)
-    
-    sendSweetAlert(session = session, title = "Notification",
-                   btn_labels = NA,
-                   text = "Analysis in Progress", type = "warning",
-                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
-    
-    gene_List <- mydata$go_array
-    gene <-  names(gene_List)[abs(gene_List) > 1]
-    
-    
-    
-    CLP$ego <- enrichGO(gene      = gene,
-                    universe      = names(gene_List),
-                    OrgDb         = org.Mm.eg.db::org.Mm.eg.db,
-                    ont           = "CC",
-                    pAdjustMethod = "BH",
-                    pvalueCutoff  = as.numeric(input$pgoinput),
-                    qvalueCutoff  = 0.05,
-                    readable      = TRUE)
-    
-    mydata$CLPG <-goplot(CLP$ego)
-    mydata$CLPT <- (CLP$ego@result)
-  
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Analysis has completed!", type = "success",
-                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
-    
-  })
-    
-    #Gene pathway UI-1
-  
-  output$goinput <- renderPlot({ 
-    
-    req(mydata$CLPG)
-    plot(mydata$CLPG)
-    })
-  
-  #Gene pathway  UI-2
-  output$gotable <- renderTable({
-    
-    req(mydata$CLPT)
-  
-    plot((mydata$CLPT))
-  })
     
   # Creates an overview of our mapped data
   output$contents <- DT::renderDataTable(server = FALSE, {
@@ -640,19 +606,61 @@ server <- function(input, output, session) {
     plot(mydata$plot_anno_loc)
   })
   
+  
+  # Render a bargraph for drug interaction data----------------------------
+  observeEvent(input$tabs, {
+    
+    if (req(input$tabs) == "genep") {
+      
+      if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
+      
+      req(isolate(mydata$protdf))
+      
+      sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
+      
+      df <- mydata$protdf %>% dplyr::select(ID, CP_loc, direction) %>% distinct()
+      
+      locs <- df$CP_loc %>% unique() %>% strsplit(., split = ";") %>% unlist() %>% unique()
+      locs <- locs[!is.na(locs)]
+      
+      kinaseresult <- list()
+      
+      for(i in 1:length(locs)){
+        
+        df_con <- df %>% mutate(kinase = grepl(locs[i], .$CP_loc))
+        
+        kinaseresult[[locs[i]]] <- c(df_con %>% filter(direction == "up" & kinase == TRUE) %>% nrow(),
+                               df_con %>% filter(direction == "down" & kinase == TRUE) %>% nrow(),
+                               df_con %>% filter(direction == "NS" & kinase == TRUE) %>% nrow())
+      }
+      
+      kinaseresult[[length(locs) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
+                                               df_con %>% filter(direction == "down") %>% nrow(),
+                                               df_con %>% filter(direction == "NS") %>% nrow())
+      
+      contingency <- do.call(rbind, kinaseresult) %>% `rownames<-`(c(locs, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
+      
+      contingency <- contingency[rowSums(contingency) != 0,]
+      
+      chisq <- chisq.test(contingency)
+      
+      mydata$chisq <- chisq
+      
+      y <<- mydata$chisq
+      
+      sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
+      
+    } 
+  })
 
+  #annotation dgi
+  output$contingency_loc <- renderPlot({
+    req(isolate(mydata$protdf), isolate(mydata$chisq))
+    corrplot::corrplot(mydata$chisq$residuals, is.cor = FALSE, title = "subcellular localizations", mar=c(0,0,1,0))
+  })
   
   
-  
-  
-  
-  #Making columns used for contigency tabele
- # x <- x %>% mutate(direction = case_when( (p < 0.05 & fold_change > 0) ~ "up", (q < 0.05 & cor < 0) ~ "down", TRUE ~ "NS"  ))
-#
- 
-  # Case_when function
-  #x5 %>% mutate(significant = case_when( (pvalue < 0.05 & for_change > 1 ) ~ "significant", 
-                                           #TRUE ~ "not significant" ))
+
 }
 
 
