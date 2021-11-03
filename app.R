@@ -15,6 +15,7 @@ library(GSEABase)
 library(vissE)
 library(igraph)
 library(ggpubr)
+library(patchwork)
 #library(pubgr)
 #library(org.Hs.eg.db)
 #library(org.Mm.eg.db)
@@ -24,7 +25,7 @@ library(ggpubr)
 
 
 
-# Define UI foror data upload app ----
+# Define UI for data upload app ----
 ui <- dashboardPage( skin = 'black',
                      
     # App title and header ----
@@ -34,10 +35,9 @@ ui <- dashboardPage( skin = 'black',
                                       tags$img(src=paste0("teaprot.svg"), height = "70%", width = "auto", align = "middle"))),
   
   
-  
   # Sidebar panel for inputs ----
   dashboardSidebar(
-    sidebarMenu(
+    sidebarMenu(id = "tabs",
       # Input: Select a file ----
       fileInput("file", "Choose CSV File",
                 multiple = FALSE,
@@ -57,19 +57,14 @@ ui <- dashboardPage( skin = 'black',
       
       menuItem("View Data", tabName = "view", icon = icon("bookmark")),
       
-      
       menuItem("Analysis", tabName = "ANALYSIS", icon = icon("bookmark"),
-              menuSubItem("Pvalue", tabName = "PVALUE", icon= icon("info-circle")),
-              menuSubItem("Fchange", tabName = "forchange"),
+              menuSubItem("p-value & fold change", tabName = "PVALUE", icon= icon("info-circle")),
               menuSubItem("Drug Interaction", tabName = "dugi"),
               menuSubItem("Gene Location", tabName = "genel"),
               menuSubItem("Gene Pathway", tabName = "genep"),
               menuSubItem("Fgsea analysis", tabName = "fgseaa"),
               menuSubItem('vissE analysis', tabName = 'vvss')
-              ),
-      
-     menuItem("youtube", icon= icon("file-code-o"),
-              href= "https://www.youtube.com/")
+              )
 
 
     ),
@@ -89,8 +84,6 @@ ui <- dashboardPage( skin = 'black',
   #UI layout for each tab
     tabItems(
       
-      
-      
       tabItem(tabName = "start",
               div(class = "jumbotron", style="background-image: url(dna-banner.svg); 
               background-color:white;
@@ -99,31 +92,26 @@ ui <- dashboardPage( skin = 'black',
               fluidRow(
                 box(status = 'primary', includeMarkdown("README.md")))),
       
-      tabItem(tabName = "view", h2("View Your Data Here"), DT::DTOutput("contents"), downloadButton("dl_table", "Download your table here!")),
+      tabItem(tabName = "view", DT::DTOutput("contents"), downloadButton("dl_table", "Download your table here!")),
+      
+      tabItem(tabName = "ANALYSIS"),
       
       ## P value
-      tabItem(
-       ##enclose the rest of the code with renderUI
-        actionButton('buttonp', 'Start Analysis!'),
-              tabName = "PVALUE",
-              h2("P-value Analysis"), 
-        fluidRow ( 
+      tabItem(tabName = "PVALUE",
+        fluidRow( 
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
-                   HTML("<p align='justify'> Analysis are performed to analyze the P values
+                   HTML("<p align='justify'> Analysis are performed to analyze the p-values and fold-changes
                         of your data.</p>"))),
         fluidRow(
-          box( title = 'Histogram', plotOutput("histogram_pvalue") %>% withSpinner()),
-          box( title = 'Density Plot', plotOutput("density_pvalue") %>% withSpinner() 
-               ))),
-              
-    
-      tabItem(tabName = "ANALYSIS"),
+          box( title = 'Distributions', plotOutput("histogram_pvalue") %>% withSpinner()),
+          box( title = 'Volcano plot', plotly::plotlyOutput("density_pvalue") %>% withSpinner() 
+               ))
+        ),
       
       ##Drug interaction
       tabItem(
         actionButton('buttond', 'Start Analysis'),#style = 'background-color:MistyRose;'),
         tabName = "dugi", 
-              h2("Drug Interaction Analysis"), 
         fluidRow ( 
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
               HTML("<p align='justify'> Analysis are performed to identify the number of genes
@@ -164,18 +152,7 @@ ui <- dashboardPage( skin = 'black',
         fluidRow(column(12,
           box(width = 12, plotOutput("fgseainput") %>% withSpinner() )))),
       
-    #Foldchange
-      tabItem(
-        actionButton('buttonf', 'Start Analysis'),
-        tabName = "forchange", h2("Foldchange Analysis"), 
-        
-        fluidRow ( 
-          box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
-              HTML("<p align='justify'> Analysis are performed to analyze the foldchange
-                        of your data.</p>"))),
-        
-              fluidRow(column(6, box(title="Boxplot",plotOutput("boxplot_fc") %>% withSpinner(),width = 12)), 
-                       column(6,box(plotOutput('zplot_fc',height = 500) %>% withSpinner())))),
+
       
     #Visse analysis
       tabItem(
@@ -212,6 +189,10 @@ server <- function(input, output, session) {
   # We first load the data based on its extension (.csv, .txt, .xlsx)
   # Then we load our databases and join the user data with out provided databases
   # Finally we save the df as a reactive object
+  
+  observe({
+    print(input$tabs)
+  })
   
   observeEvent(input$button, {
     
@@ -604,34 +585,35 @@ server <- function(input, output, session) {
 
   
   # Render a histogram of pvalues----------------------------
-  observeEvent(input$buttonp, {
+  observeEvent(input$tabs, {
     
-    if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
-    
-    
-    req(mydata$protdf)
+    if (req(input$tabs) == "PVALUE") {
       
-      sendSweetAlert(session = session, title = "Notification",
-                     btn_labels = NA,
-                     text = "Analysis in Progress", type = "warning",
-                     closeOnClickOutside = FALSE , showCloseButton = FALSE)
-    
-    mydata$pplot2 <- hist(mydata$protdf[,2])
+      if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
       
-  # A Density plot for P value------------------------------
- mydata$pplot1 <- ggplot(mydata$protdf,aes(y=-log10(pvalue), x=fold_change)) + geom_point() +
-             ggtitle("Foldchange VS P_value") + theme(plot.title = element_text(
-               hjust = 0.5, size = 15, face = 'bold', color = 'blue')) 
-    
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Analysis has completed!", type = "success",
-                   closeOnClickOutside = TRUE, showCloseButton = FALSE)
-
+      req(isolate(mydata$protdf))
+      
+      sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
+      
+      
+      # A Density plot for P value------------------------------
+      mydata$pplot1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + theme_bw())
+  
+      p1 <- ggplot(isolate(mydata$protdf), aes(x = pvalue)) + geom_histogram(bins = 40, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
+      p2 <- ggplot(isolate(mydata$protdf), aes(x = fold_change)) + geom_histogram(bins = 100, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
+      
+      mydata$pplot2 <- (p1 + p2)
+      
+      sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
+      
+      } 
+  
   })
+  
   #P value UI-1
-  output$density_pvalue <- renderPlot({ 
+  output$density_pvalue <- plotly::renderPlotly({ 
     req(mydata$pplot1)
-    plot(mydata$pplot1)
+    return(mydata$pplot1)
     })
   
   #P value UI-2
@@ -640,43 +622,12 @@ server <- function(input, output, session) {
     plot(mydata$pplot2)
     })
   
-  # Render a boxplot of fold-change-------------------------------
-  observeEvent(input$buttonf, {
-    
-    if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
-    
-    req(mydata$protdf)
-     
-     sendSweetAlert(session = session, title = "Notification",
-                    btn_labels = NA,
-                    text = "Analysis in Progress", type = "warning",
-                    closeOnClickOutside = FALSE , showCloseButton = FALSE)
-     
-    
-    mydata$ffplot1 <-(mydata$protdf[,3])    
   
-  # Render a cool plot of fold-change-----------------------------
 
-    mydata$ffplot2 <- ggplot(mydata$protdf, aes(y=fold_change, x=pvalue)) + geom_polygon()
-    
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Analysis has completed!", type = "success",
-                   closeOnClickOutside = TRUE, showCloseButton = FALSE)              
   
-  })
+
   
-  #fold-change UI-1
-  output$boxplot_fc <- renderPlot({
-    req(mydata$ffplot1)
-    boxplot(mydata$ffplot1)
-  })
-  
-  #fold-change UI-2
-  output$zplot_fc <- renderPlot({
-    req(mydata$ffplot2)
-    plot(mydata$ffplot2)
-    
-  })
+
 
   
   # Render a bargraph for drug interaction data----------------------------
