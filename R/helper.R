@@ -89,6 +89,13 @@ entrezmapping <- function(species){
   
   if(species == "human"){entrezids <- as.list(org.Hs.eg.db::org.Hs.egALIAS2EG)}
   
+  if(species == "zebrafish"){entrezids <- as.list(org.Dr.eg.db::org.Dr.egALIAS2EG)}
+  
+  if(species == "drosophila"){entrezids <- as.list(org.Dm.eg.db::org.Dm.egALIAS2EG)}
+  
+  if(species == "rat"){entrezids <- as.list(org.Rn.eg.db::org.Rn.egALIAS2EG)}
+  
+  
   entrezids <- entrezids[!is.na(entrezids)]
   entrezids <- sapply(entrezids,'[[',1)
   entrezids <- cbind(entrezids) %>% as.data.frame() %>% mutate(ID = row.names(.)) %>% `colnames<-`(c("EntrezGeneID", "ID"))

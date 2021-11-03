@@ -3,7 +3,6 @@ library(shinydashboard)
 library(fgsea)
 library(data.table) 
 library(ggplot2)
-library(org.Hs.eg.db)
 library(shinyWidgets)
 library(markdown)
 library(clusterProfiler)
@@ -17,14 +16,22 @@ library(vissE)
 library(igraph)
 library(ggpubr)
 #library(pubgr)
+#library(org.Hs.eg.db)
+#library(org.Mm.eg.db)
+#library(org.Dr.eg.db)
+#library(org.Rn.eg.db)
+#library(org.Dm.eg.db)
 
 
 
 # Define UI foror data upload app ----
 ui <- dashboardPage( skin = 'black',
+                     
+    # App title and header ----
+    title = "TeaProt",
   
-  # App title ----
-  dashboardHeader(title = span('Uploading Files', style = "font-weight: bold")),
+    dashboardHeader(title = tags$a(href='https://github.com/ryip10903/Protein_annotation_app', target = '_blank',
+                                      tags$img(src=paste0("teaprot.svg"), height = "70%", width = "auto", align = "middle"))),
   
   
   
@@ -40,7 +47,7 @@ ui <- dashboardPage( skin = 'black',
       
       
       selectInput("species", "Choose Species",
-                  c("human", "drosophila", "mouse")),
+                  c("human", "mouse", "rat", "drosophila", "zebrafish")),
       
     #Start analysis button
     actionButton("button", 'Start Here!', style='font-weight:600' ),
@@ -72,6 +79,11 @@ ui <- dashboardPage( skin = 'black',
   # Main panel for displaying outputs ----
   dashboardBody(
     
+    # The global options for the UI and meta tags are defined here
+    # This includes the custom.css stylesheet into the body.
+    # The meta tags affect the search enginge results when looking for CoffeeProt
+    tags$head(tags$meta(name = "description", content = "TeaProt is an easy to use and interactive tool to analyze proteomics data."),
+              tags$meta(name = "keywords", content = "protein, proteomics, transcriptomics, analysis, visualization")),
     
     
   #UI layout for each tab
@@ -85,10 +97,9 @@ ui <- dashboardPage( skin = 'black',
                   background-size: cover;", HTML("<center><h1>Welcome to TeaProt!</h1></center>"),
                   HTML("<center><p>For the annotation of Protein/transcript data.</p></center>")),
               fluidRow(
-                box( title = 'Instructions', status = 'primary',
-                  includeMarkdown("README.md")))),
+                box(status = 'primary', includeMarkdown("README.md")))),
       
-      tabItem(tabName = "view", h2("View Your Data Here"), DT::DTOutput("contents")),
+      tabItem(tabName = "view", h2("View Your Data Here"), DT::DTOutput("contents"), downloadButton("dl_table", "Download your table here!")),
       
       ## P value
       tabItem(
@@ -164,8 +175,7 @@ ui <- dashboardPage( skin = 'black',
                         of your data.</p>"))),
         
               fluidRow(column(6, box(title="Boxplot",plotOutput("boxplot_fc") %>% withSpinner(),width = 12)), 
-                       column(6,box(plotOutput('zplot_fc',height = 500) %>% withSpinner()))),
-              downloadButton("dl_table", "Download your table here!")),
+                       column(6,box(plotOutput('zplot_fc',height = 500) %>% withSpinner())))),
       
     #Visse analysis
       tabItem(
@@ -282,7 +292,7 @@ server <- function(input, output, session) {
     x3 <<- df
     
   # joining the user's data with mouse gene id
-    df <- left_join(df, entrezmapping("mouse"))
+    df <- left_join(df, entrezmapping(input$species))
     
   #joining user's data with drug interaction data
    
@@ -331,8 +341,6 @@ server <- function(input, output, session) {
     mydata$go_array <-array
     
     
-    x <<- x %>% mutate(direction = case_when( (p < 0.05 & fold_change > 0) ~ "up", (q < 0.05 & cor < 0) ~ "down", TRUE ~ "NS"  ))
-  
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Mapping has completed! You can start your Analysis! ", type = "success",
                    closeOnClickOutside = TRUE, showCloseButton = FALSE)
