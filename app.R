@@ -87,7 +87,7 @@ ui <- dashboardPage( skin = 'black',
                     
                     # Input: Select significance cutoff ----
                     sliderTextInput(inputId = "param_pval", label = "Choose a p-value cutoff:", choices = c(1, 0.1, 0.05, 0.01, 0.001), selected = 0.05, grid = TRUE),
-                    sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = c(0, 1, 2, 3, 4, 5), selected = 1, grid = TRUE),
+                    sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), selected = 1, grid = TRUE),
                     
                     verbatimTextOutput("param_text"),
                     
@@ -123,7 +123,7 @@ ui <- dashboardPage( skin = 'black',
               HTML("<p align='justify'> Analysis are performed to identify the number of genes
                         that have known drug interactions.</p>"))),
         fluidRow(
-          box(title = 'Drug-gene interaction - Annotations', plotOutput("bargraph_drug") %>% withSpinner())),
+          box(title = 'Drug-gene interaction - Annotations', width = 12, plotOutput("bargraph_drug") %>% withSpinner())),
         fluidRow(
           box(title = 'Subcellular localization - Annotations', width = 12, plotOutput("bargraph_loc") %>% withSpinner()))),
       
@@ -133,7 +133,7 @@ ui <- dashboardPage( skin = 'black',
         HTML("<p align='justify'> Analysis are performed to identify the number of genes
                         that have known drug interactions.</p>"))),
         
-        fluidRow( box(title = "results", plotOutput("contingency_loc") %>% withSpinner(), width = 12))
+        fluidRow( box(title = "subcellular localizations", plotOutput("contingency_loc") %>% withSpinner(), width = 12))
         ),
               
       #Fgsea
@@ -582,7 +582,10 @@ server <- function(input, output, session) {
       
       sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
       
-      mydata$plot_anno_dgi <- (mydata$protdf %>% dplyr::select(ID, drug_name) %>% mutate(drug_name = !is.na(drug_name)) %>% group_by(ID) %>% summarise(n = sum(drug_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+      p1 <- (mydata$protdf %>% dplyr::select(ID, drug_name) %>% mutate(drug_name = !is.na(drug_name)) %>% group_by(ID) %>% summarise(n = sum(drug_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+      p2 <- ggplot(mydata$protdf %>% filter(!is.na(drug_name)) %>% group_by(drug_name) %>% summarise(frequency = n()) %>% slice_max(frequency, n = 40, with_ties = FALSE), aes(x=frequency, y=reorder(drug_name, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+      
+      mydata$plot_anno_dgi <- (p1 + p2)
       
       p1 <- (mydata$protdf %>% dplyr::select(ID, CP_loc) %>% mutate(CP_loc = !is.na(CP_loc)) %>% group_by(ID) %>% summarise(n = sum(CP_loc)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
       p2 <- ggplot(mydata$CP_summary, aes(x=frequency, y=reorder(CP_loc, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
@@ -656,7 +659,7 @@ server <- function(input, output, session) {
   #annotation dgi
   output$contingency_loc <- renderPlot({
     req(isolate(mydata$protdf), isolate(mydata$chisq))
-    corrplot::corrplot(mydata$chisq$residuals, is.cor = FALSE, title = "subcellular localizations", mar=c(0,0,1,0))
+    corrplot::corrplot(mydata$chisq$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
   })
   
   
