@@ -59,8 +59,7 @@ ui <- dashboardPage( skin = 'black',
       
       menuItem("Analysis", tabName = "ANALYSIS", icon = icon("bookmark"),
               menuSubItem("p-value & fold change", tabName = "PVALUE", icon= icon("info-circle")),
-              menuSubItem("Drug Interaction", tabName = "dugi"),
-              menuSubItem("Gene Location", tabName = "genel"),
+              menuSubItem("annotations", tabName = "dugi"),
               menuSubItem("Gene Pathway", tabName = "genep"),
               menuSubItem("Fgsea analysis", tabName = "fgseaa"),
               menuSubItem('vissE analysis', tabName = 'vvss')
@@ -92,7 +91,12 @@ ui <- dashboardPage( skin = 'black',
               fluidRow(
                 box(status = 'primary', includeMarkdown("README.md")))),
       
-      tabItem(tabName = "view", DT::DTOutput("contents"), downloadButton("dl_table", "Download your table here!")),
+      tabItem(tabName = "view",        
+              fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
+              HTML("<p align='justify'> User-uploaded input data is annotated with information from various sources, including DGIdb and HPA.</p>"))),
+              fluidRow(
+                box(title = 'Annotated table', DT::DTOutput("contents") %>% withSpinner()) 
+                )),
       
       tabItem(tabName = "ANALYSIS"),
       
@@ -109,29 +113,16 @@ ui <- dashboardPage( skin = 'black',
         ),
       
       ##Drug interaction
-      tabItem(
-        actionButton('buttond', 'Start Analysis'),#style = 'background-color:MistyRose;'),
-        tabName = "dugi", 
+      tabItem(tabName = "dugi", 
         fluidRow ( 
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
               HTML("<p align='justify'> Analysis are performed to identify the number of genes
                         that have known drug interactions.</p>"))),
         fluidRow(
-          box(title = 'Plot', plotOutput("bargraph_drug") %>% withSpinner()))),
+          box(title = 'Drug-gene interaction - Annotations', plotOutput("bargraph_drug") %>% withSpinner())),
+        fluidRow(
+          box(title = 'Subcellular localization - Annotations', width = 12, plotOutput("bargraph_loc") %>% withSpinner()))),
       
-      #Gene Location
-      tabItem(
-        actionButton('buttong', 'Start Analysis'),
-        
-        fluidRow ( 
-          box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
-              HTML("<p align='justify'> Analysis are performed to show the localization
-                        of the genes in your data.</p>"))),
-        
-        tabName = "genel", 
-              h2("Gene Location Analysis"), 
-              fluidRow( box(width =12, plotOutput('CP_location') %>% withSpinner()))
-                       ),
     #Gene pathway 
       tabItem(
         actionButton('buttonpa', 'Start Analysis'),
@@ -328,24 +319,7 @@ server <- function(input, output, session) {
     
   })
   
-  #Genelocation analysis --------------------------------------------
-  observeEvent(input$buttong, {
-    
-    if(!exists('mydata$CP_summary')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
-    
-    sendSweetAlert(session = session, title = "Notification", 
-                   text = "Analysis is now in progress ", type = "waning",
-                   closeOnClickOutside = TRUE, showCloseButton = TRUE)
-    
-    output$CP_location <- renderPlot ({
-    
-    req(mydata$CP_summary)
-    
-    return(ggplot(mydata$CP_summary, aes(x=frequency, y=reorder(CP_loc, frequency)))
-           + geom_bar(stat = "identity") + theme_minimal() + labs(x = "Frequency", y = ""))
-      
-    
-  })})
+
 
     
   ## visse analysis --------------------------------------------
@@ -568,7 +542,7 @@ server <- function(input, output, session) {
   })
     
   # Creates an overview of our mapped data
-  output$contents <- DT::renderDT({
+  output$contents <- DT::renderDataTable(server = FALSE, {
     
     req(mydata$protdf)
     
@@ -578,7 +552,8 @@ server <- function(input, output, session) {
   
     df[,3] <- formatC(as.data.frame(df)[,3], digits = 3) 
   
-    return(DT::datatable(df, options = list(scrollX=TRUE)))
+    return(DT::datatable(df, extensions = 'Buttons', rownames = FALSE, options = list(dom = 'tpB', fixedColumns = TRUE, autoWidth = FALSE, pagingType = "numbers", scrollX = T, buttons = c('copy', 'csv', 'excel','pdf'))) %>%
+      DT::formatStyle(columns = colnames(data), fontSize = '80%'))
     
   })
   
@@ -597,7 +572,7 @@ server <- function(input, output, session) {
       
       
       # A Density plot for P value------------------------------
-      mydata$pplot1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + theme_bw())
+      mydata$pplot1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + theme_bw())
   
       p1 <- ggplot(isolate(mydata$protdf), aes(x = pvalue)) + geom_histogram(bins = 40, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
       p2 <- ggplot(isolate(mydata$protdf), aes(x = fold_change)) + geom_histogram(bins = 100, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
@@ -631,30 +606,50 @@ server <- function(input, output, session) {
 
   
   # Render a bargraph for drug interaction data----------------------------
-  
-  observeEvent(input$buttond, {
+  observeEvent(input$tabs, {
     
-    
-    
-    output$bargraph_drug <- renderPlot({
-    
-    req(mydata$protdf)
-    
-    return(ggplot(mydata$protdf, aes(x= !is.na(drug_name))) + geom_bar())
+    if (req(input$tabs) == "dugi") {
       
-      sendSweetAlert(session = session, title = "Notification", 
-                    button = FALSE,
-                     text = "Analysis has Completed ", type = "success",
-                     closeOnClickOutside = FALSE, showCloseButton = FALSE)
-  })})
+      if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
+      
+      req(isolate(mydata$protdf), isolate(mydata$CP_summary))
+      
+      sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
+      
+      mydata$plot_anno_dgi <- (mydata$protdf %>% dplyr::select(ID, drug_name) %>% mutate(drug_name = !is.na(drug_name)) %>% group_by(ID) %>% summarise(n = sum(drug_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+      
+      p1 <- (mydata$protdf %>% dplyr::select(ID, CP_loc) %>% mutate(CP_loc = !is.na(CP_loc)) %>% group_by(ID) %>% summarise(n = sum(CP_loc)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+      p2 <- ggplot(mydata$CP_summary, aes(x=frequency, y=reorder(CP_loc, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+      
+      mydata$plot_anno_loc <- (p1 + p2)
+      
+      sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
+      
+    } 
+})
+  
+  #annotation dgi
+  output$bargraph_drug <- renderPlot({
+    req(isolate(mydata$protdf))
+    plot(mydata$plot_anno_dgi)
+  })
+  
+  #annotation dgi
+  output$bargraph_loc <- renderPlot({
+    req(isolate(mydata$protdf))
+    plot(mydata$plot_anno_loc)
+  })
+  
+
+  
+  
+  
+  
   
   #Making columns used for contigency tabele
  # x <- x %>% mutate(direction = case_when( (p < 0.05 & fold_change > 0) ~ "up", (q < 0.05 & cor < 0) ~ "down", TRUE ~ "NS"  ))
 #
  
-  # Downloader for the table
-  output$dl_table <- cp_dl_table_csv(mydata$protdf, "annotated_data.csv")
-  
   # Case_when function
   #x5 %>% mutate(significant = case_when( (pvalue < 0.05 & for_change > 1 ) ~ "significant", 
                                            #TRUE ~ "not significant" ))
