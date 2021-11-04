@@ -133,7 +133,7 @@ ui <- dashboardPage( skin = 'black',
         HTML("<p align='justify'> Analysis are performed to identify the number of genes
                         that have known drug interactions.</p>"))),
         
-        fluidRow( box(title = "subcellular localizations", plotOutput("contingency_loc") %>% withSpinner(), width = 12))
+        fluidRow( box(title = "subcellular localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_ui"), width = 12))
         ),
               
       #Fgsea
@@ -206,25 +206,8 @@ server <- function(input, output, session) {
                    btn_labels = NA,
                    closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
-    
 
-    # Load Human Protein Atlas, but edit to include ancestor localization terms for more accurate overlap
-    db_hpa <- readRDS(file = "database/db_hpa.Rds")
-    ancestors <- readxl::read_excel(path = 'database/localization_ancestors.xlsx' ) %>% 
-      filter(!is.na(Ancestors)) %>% 
-      mutate(term_ancestor = paste0(Term, ";", Ancestors))
-    
-    db_hpa$CP_loc <- db_hpa$`IF main protein location`
-    
-    for(i in 1:nrow(ancestors)){
-      db_hpa$CP_loc <- db_hpa$CP_loc %>% sub(ancestors$Term[i], ancestors$term_ancestor[i], .)
-    }
-    
-    db_hpa <<- db_hpa %>% mutate(CP_loc = sapply(strsplit(db_hpa$CP_loc, ";"), function(x) paste(unique(x), collapse = ";"))) %>% dplyr::select(-ENSG, -Uniprot, -`HyperLOPIT location`, -Reliability) %>% dplyr::rename("HPA_IF_protein_location" = `IF main protein location`)
-    
-   
-    print("file loaded")
-    
+
     if(sub("^.*\\.","", input$file$datapath) == "csv"){
       tryCatch(
         {
@@ -274,16 +257,28 @@ server <- function(input, output, session) {
     
   #joining user's data with drug interaction data
    
-    df <- df %>% mutate (ID = tolower(ID)) 
+    df <- df %>% mutate(ID = tolower(ID)) 
     
     #Loading drug interaction data
-    db_dgidb <<- readRDS(file = "database/DGIdb_genename_drugname.Rds") %>% dplyr::select(drug_name, gene_name) %>% mutate(gene_name = tolower(gene_name)) %>% `colnames<-`(c("drug_name", "gene_name"))
-    db_dgidb <<- db_dgidb %>% group_by(gene_name) %>% summarise(drug_name = paste(drug_name, collapse = "|"))
+    db_dgidb <- readRDS(file = "database/DGIdb_genename_drugname.Rds") %>% dplyr::select(drug_name, gene_name) %>% mutate(gene_name = tolower(gene_name)) %>% `colnames<-`(c("drug_name", "gene_name"))
+    db_dgidb <- db_dgidb %>% group_by(gene_name) %>% summarise(drug_name = paste(drug_name, collapse = "|"))
     
     df <- left_join(df, db_dgidb, by = c("ID" = "gene_name"))
   
   
   # joining user's data with gene location data
+    # Load Human Protein Atlas, but edit to include ancestor localization terms for more accurate overlap
+    db_hpa <- readRDS(file = "database/db_hpa.Rds")
+    ancestors <- readxl::read_excel(path = 'database/localization_ancestors.xlsx' ) %>% filter(!is.na(Ancestors)) %>% mutate(term_ancestor = paste0(Term, ";", Ancestors))
+    
+    db_hpa$CP_loc <- db_hpa$`IF main protein location`
+    
+    for(i in 1:nrow(ancestors)){
+      db_hpa$CP_loc <- db_hpa$CP_loc %>% sub(ancestors$Term[i], ancestors$term_ancestor[i], .)
+    }
+    
+    db_hpa <- db_hpa %>% mutate(CP_loc = sapply(strsplit(db_hpa$CP_loc, ";"), function(x) paste(unique(x), collapse = ";"))) %>% dplyr::select(-ENSG, -Uniprot, -`IF main protein location`, -`HyperLOPIT location`, -Reliability)
+    
     df <- left_join (df, db_hpa, by = c('ID' = 'Gene'))
     
     
@@ -300,7 +295,7 @@ server <- function(input, output, session) {
 
     
     #Making columns used for contigency table
-    df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (input$param_pval < 0.05 & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
+    df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (pvalue < input$param_pval & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
     
     mydata$protdf <- df
     mydata$array <- array 
@@ -683,6 +678,23 @@ server <- function(input, output, session) {
     corrplot::corrplot(mydata$chisq$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
   })
   
+  output$contingency_download_ui <- renderUI({
+    req(isolate(mydata$chisq))
+    downloadButton("dl_contingency", label = "Download contingency - Localization")
+  })
+  
+  output$dl_contingency <- downloadHandler(
+    filename = function() {
+      paste("contingency_localization_", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(cbind(mydata$chisq$observed %>% `colnames<-`(paste(colnames(.), "observed", sep = "_")),
+                      round(mydata$chisq$expected,1) %>% `colnames<-`(paste(colnames(.), "expected", sep = "_")),
+                      round(mydata$chisq$residuals,1) %>% `colnames<-`(paste(colnames(.), "residuals", sep = "_"))), file)
+    }
+  )
+  
+
   
 
 }
