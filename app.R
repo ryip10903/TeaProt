@@ -137,21 +137,25 @@ ui <- dashboardPage( skin = 'black',
         ),
               
       #Fgsea
-      tabItem(
-        actionButton('buttonfg', 'Start Analysis'), 
-        selectInput("fgnumber", "Choose Number of Pahways to be seen",
-                    c(10, 20, 30)),
-        tabName = "fgseaa", h2("Fgsea Analysis"), 
-        fluidRow(column(12,
-          box(width = 12, plotOutput("fgseainput") %>% withSpinner() )))),
+      tabItem(tabName = "fgseaa", 
+              fluidRow(box(title = 'About the Analysis', solidHeader = TRUE, status = 'primary', 
+                           HTML("<p align='justify'> Analysis are performed to identify the number of genes
+                        that have known drug interactions.</p>")),
+                       box(title ="input", solidHeader = TRUE, status = 'primary',
+                           selectInput('fgseadb', 'Choose gene-sets', choices = list(Pathway = c(`Reactome` = 'reactome', `New Jersey` = 'NJ'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature')), selectize = FALSE),
+                           selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)),
+                           actionButton('buttonfg', 'Start Analysis'))),
+              
+        
+        fluidRow(box(title = "FGSEA - Top results", width = 6, plotOutput("fgseaplot") %>% withSpinner() ),
+                 box(title = "FGSEA - Table", width = 6, DT::dataTableOutput("fgseatable") ))),
       
 
       
     #Visse analysis
       tabItem(
         actionButton('buttonv', 'Start Analysis'),
-        selectInput('DBselect', 'Options', c('c1','c2','c3','c4','c5','c6','c7', 'c8',
-                                             'h'), 
+        selectInput('DBselect', 'Options', c('c1','c2','c3','c4','c5','c6','c7', 'c8', 'h'), 
                     selected = c('h', 'c2', 'c5'),
                     multiple=TRUE, selectize=TRUE),
         tabName = 'vvss', h2('Visse Analysis'),
@@ -160,11 +164,7 @@ ui <- dashboardPage( skin = 'black',
       )
       
     ),
-    
-   
-    
-    
-    
+
     
   ))
 
@@ -189,7 +189,6 @@ server <- function(input, output, session) {
   
   observe({
     print(input$file)
-    x <<- input$file
   })
   
 
@@ -203,7 +202,7 @@ server <- function(input, output, session) {
     
     
     sendSweetAlert(session = session, title = "Notification", 
-                   text = "Data Mapping in progress :) ", type = "warning",
+                   text = "Data Mapping in progress", type = "warning",
                    btn_labels = NA,
                    closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
@@ -258,22 +257,17 @@ server <- function(input, output, session) {
     }
   #df is user's uploaded value
     df <- as.data.frame(df)
-    x1 <<- df
-    
     
   #converting the uploaded column names to match our commands
     names(df)[1] <- "ID"
     names(df)[2] <- 'pvalue'
     names(df)[3] <- 'fold_change'
-    x2 <<- df
-    
+
     df <- df %>% mutate(ID = sub("\\;.*", "", .$ID))
     df <- df %>% mutate(ID = sub("\\:.*", "", .$ID))
   #pre-made function
   #converting gene names to entrez id
     df <- cp_idconvert(df, cp_idtype(df$ID))
-    
-    x3 <<- df
     
   # joining the user's data with mouse gene id
     df <- left_join(df, entrezmapping(input$species))
@@ -288,18 +282,9 @@ server <- function(input, output, session) {
     
     df <- left_join(df, db_dgidb, by = c("ID" = "gene_name"))
   
-    x4 <<- df
-    
-
-    
-   
-    
   
   # joining user's data with gene location data
     df <- left_join (df, db_hpa, by = c('ID' = 'Gene'))
-    x5 <<- df
-    
-
     
     
   # Converting EntrezGeneID column into an array
@@ -307,21 +292,15 @@ server <- function(input, output, session) {
     array <- df %>% dplyr::select(3) %>% unlist()
     names(array) <- df %>% dplyr::select(EntrezGeneID) %>% unlist()
     array <- sort(array)
-    
-    x6 <<- array
-    
+  
     go_array <- df %>% dplyr::select(3) %>% unlist()
     names(go_array) <- df %>% dplyr::select(EntrezGeneID) %>% unlist() %>% as.character()
     go_array <- sort(go_array)
     
-    x7 <<- go_array
-   
 
     
     #Making columns used for contigency table
     df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (input$param_pval < 0.05 & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
-    
-    x6 <<- df 
     
     mydata$protdf <- df
     mydata$array <- array 
@@ -383,8 +362,7 @@ server <- function(input, output, session) {
        closeOnClickOutside = TRUE , showCloseButton = TRUE)}
     validate(need(nrow(em@result)!=0, "Error, dataset contains 0 rows after filtering. "))
     
-    z2 <<- em
-    
+
     sendSweetAlert(session = session, title = "Notification",
                    btn_labels = NA,
                    text = "step1/4 has been completed", type = "warning",
@@ -468,14 +446,38 @@ server <- function(input, output, session) {
     if(!exists('mydata$array')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
     
     
-    req(mydata$array, input$fgnumber)
+    req(mydata$array, input$fgnumber, input$fgseadb)
     
     sendSweetAlert(session = session, title = "Notification",
                    btn_labels = NA,
                    text = "Analysis in Progress", type = "warning",
                    closeOnClickOutside = FALSE , showCloseButton = FALSE)
     
-    fgseaRes <- fgsea(pathways =examplePathways,
+    # Select gene-sets based on input$fgseadb ----
+    if(input$fgseadb == "reactome"){pathways = examplePathways}
+    
+    if(input$fgseadb == "encode"){
+      
+      encode <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)
+      encode <- encode %>% tidyr::unite(., col = "genes", -V1, na.rm = TRUE)
+      encode$genes <- sub("\\_\\_.*","", encode$genes)
+      
+      encodelist <- list()
+      
+      for(i in 1:nrow(encode)){
+        
+        encodelist[encode$V1[i]] <- strsplit(encode$genes[i], split = "_")
+        
+      }
+      
+      pathways = encodelist
+      
+    }
+    
+    x <<- pathways
+
+    
+    fgseaRes <- fgsea(pathways = pathways,
           stats = mydata$array,
           minSize = 15,
           maxSize = 500)
@@ -485,11 +487,10 @@ server <- function(input, output, session) {
     topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
     
     
-    mydata$fgseaplot <- (plotGseaTable(examplePathways[topPathways], exampleRanks, fgseaRes, 
+    mydata$fgseaplot <- (plotGseaTable(pathways[topPathways], exampleRanks, fgseaRes, 
                   gseaParam=0.5, render = FALSE))
     
-    f1 <<- mydata$fgseaplot
-    
+    mydata$fgseatable <<- fgseaRes
     
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Analysis has completed!", type = "success",
@@ -498,11 +499,29 @@ server <- function(input, output, session) {
     
   })
   
-  output$fgseainput <- renderPlot({
+  output$fgseaplot <- renderPlot({
     
     req(mydata$fgseaplot)
     plot(mydata$fgseaplot)
   })
+  
+  output$fgseatable <- DT::renderDataTable(server = FALSE, {
+    
+    req(mydata$fgseatable)
+    
+    df <- mydata$fgseatable %>% arrange(-NES)
+    
+    df[,2] <- formatC(as.data.frame(df)[,2], digits = 2, format = 'e')
+    df[,3] <- formatC(as.data.frame(df)[,3], digits = 2, format = 'e')
+    df[,4] <- formatC(as.data.frame(df)[,4], digits = 3) 
+    df[,5] <- formatC(as.data.frame(df)[,5], digits = 3) 
+    df[,6] <- formatC(as.data.frame(df)[,6], digits = 3) 
+    
+    return(DT::datatable(df, extensions = 'Buttons', rownames = FALSE, options = list(dom = 'tpB', fixedColumns = TRUE, autoWidth = FALSE, pagingType = "numbers", scrollX = T, buttons = c('copy', 'csv', 'excel','pdf'))) %>%
+             DT::formatStyle(columns = colnames(data), fontSize = '80%'))
+    
+  })
+  
   
     
   # Creates an overview of our mapped data
