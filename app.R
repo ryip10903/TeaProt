@@ -289,6 +289,8 @@ server <- function(input, output, session) {
     
     df <- left_join(df, db_impc_procedure, by = c('ID' = "marker_symbol")) %>% left_join(., db_impc_parameter, by = c('ID' = "marker_symbol"))
     
+    #Making columns used for contigency table
+    df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (pvalue < input$param_pval & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
     
   # Converting EntrezGeneID column into an array
   # So it can later be used for enrichment analysis
@@ -296,18 +298,14 @@ server <- function(input, output, session) {
     names(array) <- df %>% dplyr::select(EntrezGeneID) %>% unlist()
     array <- sort(array)
   
-    go_array <- df %>% dplyr::select(3) %>% unlist()
-    names(go_array) <- df %>% dplyr::select(EntrezGeneID) %>% unlist() %>% as.character()
-    go_array <- sort(go_array)
+    gene_array <- df %>% dplyr::select(3) %>% unlist()
+    names(gene_array) <- df %>% dplyr::select(ID) %>% unlist() %>% as.character() %>% toupper()
+    gene_array <- sort(gene_array)
     
-
-    
-    #Making columns used for contigency table
-    df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (pvalue < input$param_pval & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
     
     mydata$protdf <- df
     mydata$array <- array 
-    mydata$go_array <-array
+    mydata$gene_array <-gene_array
     
     
     sendSweetAlert(session = session, title = "Notification", 
@@ -471,29 +469,35 @@ server <- function(input, output, session) {
       
       }
     
-    if(input$fgseadb == "encode"){
+    if(input$fgseadb %in% c("encode", "remap", "literature")){
       
-      encode <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)
-      encode <- encode %>% tidyr::unite(., col = "genes", -V1, na.rm = TRUE)
-      encode$genes <- sub("\\_\\_.*","", encode$genes)
+      if(input$fgseadb == "encode"){pathway <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)}
+      if(input$fgseadb == "remap"){pathway <- read.delim(file = "database/CHEA3/ReMap_ChIP-seq.gmt", header = FALSE)}
+      if(input$fgseadb == "literature"){pathway <- read.delim(file = "database/CHEA3/Literature_ChIP-seq.gmt", header = FALSE)}
       
-      encodelist <- list()
+      pathway <- pathway %>% tidyr::unite(., col = "genes", -V1, na.rm = TRUE)
+      pathway$genes <- sub("\\_\\_.*","", pathway$genes)
       
-      for(i in 1:nrow(encode)){
+      pathwaylist <- list()
+      
+      for(i in 1:nrow(pathway)){
         
-        encodelist[encode$V1[i]] <- strsplit(encode$genes[i], split = "_")
+        pathwaylist[pathway$V1[i]] <- strsplit(pathway$genes[i], split = "_")
         
       }
       
-      pathways = encodelist
+      pathways = pathwaylist
       
     }
     
-    x <<- pathways
+    if(input$fgseadb %in% c("encode", "remap", "literature")){array <- mydata$gene_array} else {array <- mydata$array}
+    
+    x1 <<- pathways
+    x2 <<- array
 
     
     fgseaRes <- fgsea(pathways = pathways,
-          stats = mydata$array,
+          stats = array,
           minSize = 15,
           maxSize = 500)
     
@@ -501,7 +505,7 @@ server <- function(input, output, session) {
     topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=as.numeric(input$fgnumber)), pathway]
     topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
     
-    mydata$fgseaplot <- plotGseaTable(pathways[topPathways], mydata$array, fgseaRes, gseaParam=0.5, render = FALSE)
+    mydata$fgseaplot <- plotGseaTable(pathways[topPathways], array, fgseaRes, gseaParam=0.5, render = FALSE)
     
     mydata$fgseatable <- fgseaRes
     
