@@ -123,10 +123,9 @@ ui <- dashboardPage( skin = 'black',
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
               HTML("<p align='justify'> Analysis are performed to identify the number of genes
                         that have known drug interactions.</p>"))),
-        fluidRow(
-          box(title = 'Drug-gene interaction - Annotations', width = 12, plotOutput("bargraph_drug") %>% withSpinner())),
-        fluidRow(
-          box(title = 'Subcellular localization - Annotations', width = 12, plotOutput("bargraph_loc") %>% withSpinner()))),
+        fluidRow( box(title = 'Drug-gene interaction - Annotations', width = 12, plotOutput("bargraph_drug") %>% withSpinner())),
+        fluidRow( box(title = 'Subcellular localization - Annotations', width = 12, plotOutput("bargraph_loc") %>% withSpinner())),
+        fluidRow( box(title = 'IMPC procedure - Annotations', width = 12, plotOutput("bargraph_impc") %>% withSpinner()))),
       
     #Gene pathway 
       tabItem(tabName = "genep",
@@ -633,6 +632,14 @@ server <- function(input, output, session) {
       
       mydata$plot_anno_loc <- (p1 + p2)
       
+      df <- mydata$protdf %>% tidyr::separate_rows(impc_significant_procedure_name, sep = "\\|") %>% filter(impc_significant_procedure_name != "") %>% 
+        filter(impc_significant_procedure_name != "") %>% group_by(impc_significant_procedure_name) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
+      
+      p1 <- (mydata$protdf %>% dplyr::select(ID, impc_significant_procedure_name) %>% mutate(impc_significant_procedure_name = !is.na(impc_significant_procedure_name)) %>% group_by(ID) %>% summarise(n = sum(impc_significant_procedure_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+      p2 <- ggplot(df, aes(x=frequency, y=reorder(impc_significant_procedure_name, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+      
+      mydata$plot_anno_impc <- (p1 + p2)
+      
       sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
       
     } 
@@ -644,10 +651,16 @@ server <- function(input, output, session) {
     plot(mydata$plot_anno_dgi)
   })
   
-  #annotation dgi
+  #annotation loc
   output$bargraph_loc <- renderPlot({
     req(isolate(mydata$protdf))
     plot(mydata$plot_anno_loc)
+  })
+  
+  #annotation impcs
+  output$bargraph_impc <- renderPlot({
+    req(isolate(mydata$protdf))
+    plot(mydata$plot_anno_impc)
   })
   
   
