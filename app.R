@@ -17,6 +17,7 @@ library(igraph)
 library(ggpubr)
 library(patchwork)
 #library(pubgr)
+#library(ggpubr)
 #library(org.Hs.eg.db)
 #library(org.Mm.eg.db)
 #library(org.Dr.eg.db)
@@ -133,7 +134,8 @@ ui <- dashboardPage( skin = 'black',
         HTML("<p align='justify'> Analysis are performed to identify the number of genes
                         that have known drug interactions.</p>"))),
         
-        fluidRow( box(title = "subcellular localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_ui"), width = 12))
+        fluidRow( box(title = "subcellular localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_loc_ui"), width = 12)),
+        fluidRow( box(title = "IMPC genotype-phenotype associations", plotOutput("contingency_impc") %>% withSpinner(), uiOutput("contingency_download_impc_ui"), width = 12))
         ),
               
       #Fgsea
@@ -142,7 +144,7 @@ ui <- dashboardPage( skin = 'black',
                            HTML("<p align='justify'> Analysis are performed to identify the number of genes
                         that have known drug interactions.</p>")),
                        box(title ="input", solidHeader = TRUE, status = 'primary',
-                           selectInput('fgseadb', 'Choose gene-sets', choices = list(Pathway = c(`Reactome` = 'reactome', `New Jersey` = 'NJ'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature')), selectize = FALSE),
+                           selectInput('fgseadb', 'Choose gene-sets', choices = list(MSigDB = c(`Reactome` = 'reactome', `KEGG` = 'kegg'), MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature')), selectize = FALSE),
                            selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)),
                            actionButton('buttonfg', 'Start Analysis'))),
               
@@ -280,6 +282,12 @@ server <- function(input, output, session) {
     db_hpa <- db_hpa %>% mutate(CP_loc = sapply(strsplit(db_hpa$CP_loc, ";"), function(x) paste(unique(x), collapse = ";"))) %>% dplyr::select(-ENSG, -Uniprot, -`IF main protein location`, -`HyperLOPIT location`, -Reliability)
     
     df <- left_join (df, db_hpa, by = c('ID' = 'Gene'))
+    
+    # Annotate IMCP data
+    db_impc_procedure <- read.csv("database/IMPC/impc_procedure.csv") %>% mutate(marker_symbol = tolower(marker_symbol)) 
+    db_impc_parameter <- read.csv("database/IMPC/impc_parameter.csv") %>% mutate(marker_symbol = tolower(marker_symbol)) 
+    
+    df <- left_join(df, db_impc_procedure, by = c('ID' = "marker_symbol")) %>% left_join(., db_impc_parameter, by = c('ID' = "marker_symbol"))
     
     
   # Converting EntrezGeneID column into an array
@@ -451,6 +459,18 @@ server <- function(input, output, session) {
     # Select gene-sets based on input$fgseadb ----
     if(input$fgseadb == "reactome"){pathways = examplePathways}
     
+    if(input$fgseadb %in% c("h", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8")){
+      
+      msigdb_mm =  msigdb::msigdb.v7.2.mm.EZID()
+      msigdb_mm = appendKEGG(msigdb_mm)
+      msigdb_mm = subsetCollection(msigdb_mm, input$fgseadb)
+      genedb <- geneIds(msigdb_mm)
+      msig_db_gsea <- data.frame(gs_name = rep(names(genedb), lengths(genedb)), gene_symbol = unlist(genedb, use.names=TRUE))
+      
+      pathways = genedb
+      
+      }
+    
     if(input$fgseadb == "encode"){
       
       encode <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)
@@ -481,11 +501,9 @@ server <- function(input, output, session) {
     topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=as.numeric(input$fgnumber)), pathway]
     topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
     
+    mydata$fgseaplot <- plotGseaTable(pathways[topPathways], mydata$array, fgseaRes, gseaParam=0.5, render = FALSE)
     
-    mydata$fgseaplot <- (plotGseaTable(pathways[topPathways], exampleRanks, fgseaRes, 
-                  gseaParam=0.5, render = FALSE))
-    
-    mydata$fgseatable <<- fgseaRes
+    mydata$fgseatable <- fgseaRes
     
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Analysis has completed!", type = "success",
@@ -497,7 +515,8 @@ server <- function(input, output, session) {
   output$fgseaplot <- renderPlot({
     
     req(mydata$fgseaplot)
-    plot(mydata$fgseaplot)
+    plot(ggpubr::as_ggplot(mydata$fgseaplot))
+    
   })
   
   output$fgseatable <- DT::renderDataTable(server = FALSE, {
@@ -639,58 +658,113 @@ server <- function(input, output, session) {
       
       sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
       
+      # Localization analysis
       df <- mydata$protdf %>% dplyr::select(ID, CP_loc, direction) %>% distinct()
       
       locs <- df$CP_loc %>% unique() %>% strsplit(., split = ";") %>% unlist() %>% unique()
       locs <- locs[!is.na(locs)]
       
-      kinaseresult <- list()
+      contingency <- list()
       
       for(i in 1:length(locs)){
         
-        df_con <- df %>% mutate(kinase = grepl(locs[i], .$CP_loc))
+        df_con <- df %>% mutate(group = grepl(locs[i], .$CP_loc))
         
-        kinaseresult[[locs[i]]] <- c(df_con %>% filter(direction == "up" & kinase == TRUE) %>% nrow(),
-                               df_con %>% filter(direction == "down" & kinase == TRUE) %>% nrow(),
-                               df_con %>% filter(direction == "NS" & kinase == TRUE) %>% nrow())
+        contingency[[locs[i]]] <- c(df_con %>% filter(direction == "up" & group == TRUE) %>% nrow(),
+                               df_con %>% filter(direction == "down" & group == TRUE) %>% nrow(),
+                               df_con %>% filter(direction == "NS" & group == TRUE) %>% nrow())
       }
       
-      kinaseresult[[length(locs) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
+      contingency[[length(locs) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
                                                df_con %>% filter(direction == "down") %>% nrow(),
                                                df_con %>% filter(direction == "NS") %>% nrow())
       
-      contingency <- do.call(rbind, kinaseresult) %>% `rownames<-`(c(locs, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
+      contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(locs, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
       
       contingency <- contingency[rowSums(contingency) != 0,]
       
       chisq <- chisq.test(contingency)
       
-      mydata$chisq <- chisq
+      mydata$chisq_loc <- chisq
+      
+      
+      # IMPC analysis ----
+      df <- mydata$protdf %>% dplyr::select(ID, impc_significant_procedure_name, direction) %>% distinct()
+      
+      procedure <- df$impc_significant_procedure_name %>% unique() %>% strsplit(., split = "\\|") %>% unlist() %>% unique()
+      procedure <- procedure[!is.na(procedure)]
+      
+      x1 <<- df
+      x2 <<- procedure
+      
+      contingency <- list()
+      
+      for(i in 1:length(procedure)){
+        
+        df_con <- df %>% mutate(group = grepl(procedure[i], .$impc_significant_procedure_name))
+        
+        contingency[[procedure[i]]] <- c(df_con %>% filter(direction == "up" & group == TRUE) %>% nrow(),
+                                    df_con %>% filter(direction == "down" & group == TRUE) %>% nrow(),
+                                    df_con %>% filter(direction == "NS" & group == TRUE) %>% nrow())
+      }
+      
+      contingency[[length(procedure) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
+                                           df_con %>% filter(direction == "down") %>% nrow(),
+                                           df_con %>% filter(direction == "NS") %>% nrow())
+      
+      contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(procedure, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
+      
+      contingency <- contingency[rowSums(contingency) != 0,]
+      
+      chisq <- chisq.test(contingency)
+      
+      mydata$chisq_impc <- chisq
       
       sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
       
     } 
   })
 
-  #annotation dgi
+  # Contingency
   output$contingency_loc <- renderPlot({
-    req(isolate(mydata$protdf), isolate(mydata$chisq))
-    corrplot::corrplot(mydata$chisq$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
+    req(isolate(mydata$protdf), isolate(mydata$chisq_loc))
+    corrplot::corrplot(mydata$chisq_loc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
   })
   
-  output$contingency_download_ui <- renderUI({
-    req(isolate(mydata$chisq))
-    downloadButton("dl_contingency", label = "Download contingency - Localization")
+  output$contingency_impc <- renderPlot({
+    req(isolate(mydata$protdf), isolate(mydata$chisq_impc))
+    corrplot::corrplot(mydata$chisq_impc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
   })
   
-  output$dl_contingency <- downloadHandler(
+  output$contingency_download_loc_ui <- renderUI({
+    req(isolate(mydata$chisq_loc))
+    downloadButton("dl_contingency_loc", label = "Download contingency - Localization")
+  })
+  
+  output$dl_contingency_loc <- downloadHandler(
     filename = function() {
       paste("contingency_localization_", Sys.Date(), ".csv", sep="")
     },
     content = function(file) {
-      write.csv(cbind(mydata$chisq$observed %>% `colnames<-`(paste(colnames(.), "observed", sep = "_")),
-                      round(mydata$chisq$expected,1) %>% `colnames<-`(paste(colnames(.), "expected", sep = "_")),
-                      round(mydata$chisq$residuals,1) %>% `colnames<-`(paste(colnames(.), "residuals", sep = "_"))), file)
+      write.csv(cbind(mydata$chisq_loc$observed %>% `colnames<-`(paste(colnames(.), "observed", sep = "_")),
+                      round(mydata$chisq_loc$expected,1) %>% `colnames<-`(paste(colnames(.), "expected", sep = "_")),
+                      round(mydata$chisq_loc$residuals,1) %>% `colnames<-`(paste(colnames(.), "residuals", sep = "_"))), file)
+    }
+  )
+  
+  output$contingency_download_impc_ui <- renderUI({
+    req(isolate(mydata$chisq_loc))
+    downloadButton("dl_contingency_impc", label = "Download contingency - IMPC")
+  })
+  
+  output$dl_contingency_impc <- downloadHandler(
+    filename = function() {
+      paste("contingency_impc_", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(cbind(mydata$chisq_impc$observed %>% `colnames<-`(paste(colnames(.), "observed", sep = "_")),
+                      round(mydata$chisq_impc$expected,1) %>% `colnames<-`(paste(colnames(.), "expected", sep = "_")),
+                      round(mydata$chisq_impc$residuals,1) %>% `colnames<-`(paste(colnames(.), "residuals", sep = "_"))), file)
     }
   )
   
