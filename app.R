@@ -146,11 +146,13 @@ ui <- dashboardPage( skin = 'black',
                         that have known drug interactions.</p>")),
                        box(title ="input", solidHeader = TRUE, status = 'primary',
                            selectInput('fgseadb', 'Choose gene-sets', choices = list(MSigDB = c(`Reactome` = 'reactome', `KEGG` = 'kegg'), MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature')), selectize = FALSE),
-                           selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)),
                            actionButton('buttonfg', 'Start Analysis'))),
               
         
-        fluidRow(box(title = "FGSEA - Top results", width = 6, plotOutput("fgseaplot") %>% withSpinner() ),
+        fluidRow(tabBox(title = "FGSEA", id = "tabset1", width = 6, 
+                        tabPanel("panel", height = "60vh", selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)), plotOutput("fgseaplot") %>% withSpinner()), 
+                        tabPanel("single", height = "60vh", uiOutput("fgsea_select_ui"), plotOutput("fgseaplot_single") %>% withSpinner()), 
+                        tabPanel("volcano", height = "60vh", plotly::plotlyOutput("fgseaplot_volcano") %>% withSpinner())),
                  box(title = "FGSEA - Table", width = 6, DT::dataTableOutput("fgseatable") ))),
       
 
@@ -505,22 +507,16 @@ server <- function(input, output, session) {
     
     if(input$fgseadb %in% c("encode", "remap", "literature")){array <- mydata$gene_array} else {array <- mydata$array}
     
-    x1 <<- pathways
-    x2 <<- array
-
-    
     fgseaRes <- fgsea(pathways = pathways,
           stats = array,
           minSize = 15,
           maxSize = 500)
     
-    topPathwaysUp <- fgseaRes[ES > 0][head(order(pval), n=as.numeric(input$fgnumber)), pathway]
-    topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=as.numeric(input$fgnumber)), pathway]
-    topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
+    mydata$fgsea_res <- fgseaRes
+    mydata$fgsea_array <- array
+    mydata$fgsea_pathways <- pathways
     
-    mydata$fgseaplot <- plotGseaTable(pathways[topPathways], array, fgseaRes, gseaParam=0.5, render = FALSE)
-    
-    mydata$fgseatable <- fgseaRes
+    mydata$fgsea_volcano <- plotly::ggplotly(ggplot(fgseaRes,aes(y=-log10(pval), x=NES, label = pathway)) + geom_point(col = "blue", alpha = 0.2) + theme_bw())
     
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Analysis has completed!", type = "success",
@@ -529,18 +525,56 @@ server <- function(input, output, session) {
     
   })
   
+  output$fgseaplot_volcano <- plotly::renderPlotly({ 
+    req(mydata$fgsea_volcano)
+    return(mydata$fgsea_volcano)
+  })
+  
   output$fgseaplot <- renderPlot({
     
-    req(mydata$fgseaplot)
-    plot(ggpubr::as_ggplot(mydata$fgseaplot))
+    req(mydata$fgsea_res, mydata$fgsea_pathways, mydata$fgsea_array, input$fgnumber)
+    
+    array <- isolate(mydata$fgsea_array)
+    pathways <- isolate(mydata$fgsea_pathways)
+    fgseaRes <- isolate(mydata$fgsea_res)
+    
+    topPathwaysUp <- fgseaRes[ES > 0][head(order(pval), n=as.numeric(isolate(input$fgnumber))), pathway]
+    topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=as.numeric(isolate(input$fgnumber))), pathway]
+    topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
+    
+    p1 <- plotGseaTable(pathways[topPathways], array, fgseaRes, gseaParam=0.5, render = FALSE)
+    plot(ggpubr::as_ggplot(p1))
+    
+  })
+  
+  output$fgsea_select_ui <- renderUI({
+    
+    req(mydata$fgsea_res)
+    
+    pathways <- isolate(mydata$fgsea_res)[,1]
+    
+    selectInput("fgsea_select", "Select gene-set to display", choices = pathways, width = '100%')
+    
+  })
+  
+  output$fgseaplot_single <- renderPlot({
+    
+    req(mydata$fgsea_pathways, mydata$fgsea_array, input$fgsea_select)
+    
+    array <- isolate(mydata$fgsea_array)
+    pathways <- isolate(mydata$fgsea_pathways)
+
+    
+    p1 <- plotEnrichment(pathways[[input$fgsea_select]], array) + labs(title=input$fgsea_select)
+    plot(p1)
     
   })
   
   output$fgseatable <- DT::renderDataTable(server = FALSE, {
     
-    req(mydata$fgseatable)
+    req(mydata$fgsea_res)
     
-    df <- mydata$fgseatable %>% arrange(-NES)
+    df <- mydata$fgsea_res %>% arrange(-NES)
     
     df[,2] <- formatC(as.data.frame(df)[,2], digits = 2, format = 'e')
     df[,3] <- formatC(as.data.frame(df)[,3], digits = 2, format = 'e')
