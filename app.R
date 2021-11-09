@@ -125,7 +125,9 @@ ui <- dashboardPage( skin = 'black',
                         that have known drug interactions.</p>"))),
         fluidRow( box(title = 'Drug-gene interaction - Annotations', width = 12, plotOutput("bargraph_drug") %>% withSpinner())),
         fluidRow( box(title = 'Subcellular localization - Annotations', width = 12, plotOutput("bargraph_loc") %>% withSpinner())),
-        fluidRow( box(title = 'IMPC procedure - Annotations', width = 12, plotOutput("bargraph_impc") %>% withSpinner()))),
+        fluidRow( box(title = 'IMPC procedure - Annotations', width = 12, plotOutput("bargraph_impc") %>% withSpinner())),
+        fluidRow( box(title = 'DisGeNet disease - Annotations', width = 12, plotOutput("bargraph_disgenet") %>% withSpinner())),
+        fluidRow( box(title = 'BRENDA enzymatic reactions - Annotations', width = 12, plotOutput("bargraph_brenda") %>% withSpinner()))),
       
     #Gene pathway 
       tabItem(tabName = "genep",
@@ -283,10 +285,22 @@ server <- function(input, output, session) {
     df <- left_join (df, db_hpa, by = c('ID' = 'Gene'))
     
     # Annotate IMCP data
-    db_impc_procedure <- read.csv("database/IMPC/impc_procedure.csv") %>% mutate(marker_symbol = tolower(marker_symbol)) 
-    db_impc_parameter <- read.csv("database/IMPC/impc_parameter.csv") %>% mutate(marker_symbol = tolower(marker_symbol)) 
+    db_impc_procedure <- read.csv("database/IMPC/impc_procedure.csv") %>% mutate(marker_symbol = tolower(marker_symbol)) %>% mutate(gene_id = as.character(gene_id)) 
+    db_impc_parameter <- read.csv("database/IMPC/impc_parameter.csv") %>% mutate(marker_symbol = tolower(marker_symbol)) %>% mutate(gene_id = as.character(gene_id)) 
     
-    df <- left_join(df, db_impc_procedure, by = c('ID' = "marker_symbol")) %>% left_join(., db_impc_parameter, by = c('ID' = "marker_symbol"))
+    if(input$species != "mouse"){
+      df <- left_join(df, db_impc_procedure %>% dplyr::select(1,2), by = c('ID' = "marker_symbol")) %>% left_join(., db_impc_parameter %>% dplyr::select(1,2), by = c('ID' = "marker_symbol"))
+    } else {
+      df <- left_join(df, db_impc_procedure %>% dplyr::select(3,2), by = c('EntrezGeneID' = "gene_id")) %>% left_join(., db_impc_parameter %>% dplyr::select(3,2), by = c('EntrezGeneID' = "gene_id"))
+    }
+    
+    # Annotate DisGeNet data
+    db_disgenet <- read.csv("database/DisGeNet/disgenet_genesymbol.csv") %>% mutate(geneSymbol = tolower(geneSymbol)) %>% `colnames<-`(c("geneSymbol", "DisGeNet_disease"))
+    df <- left_join(df, db_disgenet, by = c('ID' = "geneSymbol"))
+    
+    # Annotate Brenda data
+    db_brenda <- read.csv("database/BRENDA/brenda_processed.csv") %>% dplyr::select(entrez, reaction) %>% mutate(entrez = as.character(entrez))
+    df <- left_join(df, db_brenda, by = c('EntrezGeneID' = "entrez"))
     
     #Making columns used for contigency table
     df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (pvalue < input$param_pval & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
@@ -640,6 +654,23 @@ server <- function(input, output, session) {
       
       mydata$plot_anno_impc <- (p1 + p2)
       
+      
+      df <- mydata$protdf %>% tidyr::separate_rows(DisGeNet_disease, sep = "\\|") %>% filter(DisGeNet_disease != "") %>% 
+        filter(DisGeNet_disease != "") %>% group_by(DisGeNet_disease) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
+      
+      p1 <- (mydata$protdf %>% dplyr::select(ID, DisGeNet_disease) %>% mutate(DisGeNet_disease = !is.na(DisGeNet_disease)) %>% group_by(ID) %>% summarise(n = sum(DisGeNet_disease)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+      p2 <- ggplot(df, aes(x=frequency, y=reorder(DisGeNet_disease, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+      
+      mydata$plot_anno_disgenet <- (p1 + p2)
+      
+      df <- mydata$protdf %>% tidyr::separate_rows(reaction, sep = "\\|") %>% filter(reaction != "") %>% 
+        filter(reaction != "") %>% group_by(reaction) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
+      
+      p1 <- (mydata$protdf %>% dplyr::select(ID, reaction) %>% mutate(reaction = !is.na(reaction)) %>% group_by(ID) %>% summarise(n = sum(reaction)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+      p2 <- ggplot(df, aes(x=frequency, y=reorder(reaction, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+      
+      mydata$plot_anno_brenda <- (p1 + p2)
+      
       sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
       
     } 
@@ -657,11 +688,25 @@ server <- function(input, output, session) {
     plot(mydata$plot_anno_loc)
   })
   
-  #annotation impcs
+  #annotation impc
   output$bargraph_impc <- renderPlot({
     req(isolate(mydata$protdf))
     plot(mydata$plot_anno_impc)
   })
+  
+  #annotation disgenet
+  output$bargraph_disgenet <- renderPlot({
+    req(isolate(mydata$protdf))
+    plot(mydata$plot_anno_disgenet)
+  })
+  
+  #annotation disgenet
+  output$bargraph_brenda <- renderPlot({
+    req(isolate(mydata$protdf))
+    plot(mydata$plot_anno_brenda)
+  })
+  
+  
   
   
   # Render a bargraph for drug interaction data----------------------------
