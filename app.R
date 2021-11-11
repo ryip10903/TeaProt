@@ -82,6 +82,20 @@ ui <- dashboardPage( skin = 'black',
                     # Input: Select a file ----
                     fileInput("file", "Choose CSV File", multiple = FALSE, accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv", '.xls', '.xlsx')),
                     
+                    # Input: Select ID ----
+                    selectizeInput(inputId = "col_id", label = "Choose ID column", choices = c(NULL), multiple = TRUE, selected = NULL,
+                      options = list(placeholder = "This is a placeholder", maxItems = 1)), 
+                    
+                    # Input: Select pval ----
+                    selectizeInput(inputId = "col_pval", label = "Choose p-value column", choices = c(NULL), multiple = TRUE, selected = NULL,
+                                   options = list(placeholder = "This is a placeholder", maxItems = 1)),  
+                    
+                    # Input: Select FC ----
+                    selectizeInput(inputId = "col_fc", label = "Choose fold-change column", choices = c(NULL), multiple = TRUE, selected = NULL,
+                                   options = list(placeholder = "This is a placeholder", maxItems = 1)), 
+                    
+
+                    
                     # Input: Select a species ----
                     selectInput("species", "Choose Species",
                                 c("human", "mouse", "rat", "drosophila", "zebrafish")),
@@ -100,7 +114,7 @@ ui <- dashboardPage( skin = 'black',
               fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
               HTML("<p align='justify'> User-uploaded input data is annotated with information from various sources, including DGIdb and HPA.</p>"))),
               fluidRow(
-                box(title = 'Annotated table', DT::DTOutput("contents") %>% withSpinner()) 
+                box(title = 'Annotated table', DT::DTOutput("contents") %>% withSpinner(), width = 12) 
                 )),
       
       tabItem(tabName = "ANALYSIS"),
@@ -196,15 +210,71 @@ server <- function(input, output, session) {
     print(input$file)
   })
   
+  observeEvent(input$file, {
+    
+    if(sub("^.*\\.","", input$file$datapath) %in% c("csv", "txt", "xls", "xlsx")){
+    
+    if(sub("^.*\\.","", input$file$datapath) == "csv"){
+      tryCatch(
+        {
+          df <- read.csv(input$file$datapath, sep = ",", na.strings = c("NA", "Na", "NaN", "NAN", "na", "nan"))
+        },
+        error = function(e) {
+          stop(safeError(e))
+        }
+      )
+      
+    } else if(sub("^.*\\.","", input$file$datapath) == "txt" | sub("^.*\\.","", input$file$datapath) == "tsv") {
+      tryCatch(
+        {
+          df <- read.csv(input$file$datapath, sep = "\t", na.strings = c("NA", "Na", "NaN", "NAN", "na", "nan"))
+        },
+        error = function(e) {
+          stop(safeError(e))
+        }
+      )
+    } else if(sub("^.*\\.","", input$file$datapath) == "xls" | 
+              sub("^.*\\.","", input$file$datapath) == "xlsx") {
+      tryCatch(
+        {
+          df <- readxl::read_excel(path = input$file$datapath, guess_max = 21474836, na = c("NA", "Na", "NaN", "NAN", "na", "nan"))
+        },
+        error = function(e) {
+          stop(safeError(e))
+        }
+      )
+    }
+    
+    #df is user's uploaded value
+    col_names <- colnames(as.data.frame(df))
+    
+    if(length(col_names) > 2){
+      
+      updateSelectizeInput(session,"col_id", choices = col_names, selected = col_names[1])
+      updateSelectizeInput(session,"col_pval", choices = col_names, selected = col_names[2])
+      updateSelectizeInput(session,"col_fc", choices = col_names, selected = col_names[3])
+      
+    } else {
+      
+      updateSelectizeInput(session,"col_id", choices = col_names)
+      updateSelectizeInput(session,"col_pval", choices = col_names)
+      updateSelectizeInput(session,"col_fc", choices = col_names)
+      
+    }
+    
+    
+    }
+    
+  })
 
   
-
   output$param_text <- renderText({
-    paste("Uploaded file: ", input$file[1], "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
+    paste("Uploaded file: ", input$file[1], "\n", "ID column: ", input$col_id, "\n", "p-value column: ", input$col_pval, "\n", "Fold-change column: ", input$col_fc, "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
   })
   
   observeEvent(input$button, {
     
+    req(input$file)
     
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Data Mapping in progress", type = "warning",
