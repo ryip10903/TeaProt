@@ -159,7 +159,7 @@ ui <- dashboardPage( skin = 'black',
                            HTML("<p align='justify'> Analysis are performed to identify the number of genes
                         that have known drug interactions.</p>")),
                        box(title ="input", solidHeader = TRUE, status = 'primary',
-                           selectInput('fgseadb', 'Choose gene-sets', choices = list(MSigDB = c(`Reactome` = 'reactome', `KEGG` = 'kegg'), MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature')), selectize = FALSE),
+                           selectInput('fgseadb', 'Choose gene-sets', choices = list(Default = c(`Reactome / KEGG` = 'reactome'), MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature'), urPTMdb = c(`underrepresented PTMs` = 'urptmdb')), selectize = FALSE),
                            actionButton('buttonfg', 'Start Analysis'))),
               
         
@@ -313,8 +313,9 @@ server <- function(input, output, session) {
         }
       )
     }
+    
   #df is user's uploaded value
-    df <- as.data.frame(df)
+    df <- as.data.frame(df) %>% dplyr::select(input$col_id, input$col_pval, input$col_fc)
     
   #converting the uploaded column names to match our commands
     names(df)[1] <- "ID"
@@ -554,11 +555,12 @@ server <- function(input, output, session) {
       
       }
     
-    if(input$fgseadb %in% c("encode", "remap", "literature")){
+    if(input$fgseadb %in% c("encode", "remap", "literature", "urptmdb")){
       
       if(input$fgseadb == "encode"){pathway <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)}
       if(input$fgseadb == "remap"){pathway <- read.delim(file = "database/CHEA3/ReMap_ChIP-seq.gmt", header = FALSE)}
       if(input$fgseadb == "literature"){pathway <- read.delim(file = "database/CHEA3/Literature_ChIP-seq.gmt", header = FALSE)}
+      if(input$fgseadb == "urptmdb"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_1.0.gmt", header = FALSE)}
       
       pathway <- pathway %>% tidyr::unite(., col = "genes", -V1, na.rm = TRUE)
       pathway$genes <- sub("\\_\\_.*","", pathway$genes)
