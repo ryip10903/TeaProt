@@ -42,10 +42,10 @@ ui <- dashboardPage( skin = 'black',
       
     #sidebar Items
       menuItem("START", tabName = "start", icon = icon("bookmark")),
-      
-      menuItem("View Data", tabName = "view", icon = icon("bookmark")),
+      menuItem("urPTMdb", tabName = "urptmdb", icon = icon("database")),
       
       menuItem("Analysis", tabName = "ANALYSIS", icon = icon("bookmark"),
+              menuItem("View Data", tabName = "view", icon = icon("bookmark")),
               menuSubItem("p-value & fold change", tabName = "PVALUE", icon= icon("info-circle")),
               menuSubItem("annotations", tabName = "dugi", icon= icon("chart-bar")),
               menuSubItem("enrichment", tabName = "genep",icon= icon("ellipsis-v")),
@@ -109,6 +109,19 @@ ui <- dashboardPage( skin = 'black',
                     # Start analysis button ----
                     actionButton("button", 'Start Here!', style='font-weight:600' )
                     ))),
+      
+      tabItem(tabName = "urptmdb",
+              div(class = "jumbotron", style="background-image: url(ptm-banner.svg); 
+              background-color:white;
+                  background-size: cover;", HTML("<center><h1 style='color:White;'>urPTMdb</h1></center>"),
+                  HTML("<center><p style='color:White;'>The underrepresented PTM gene-set database.</p></center>")),
+              fluidRow(
+                box(title = "documentation", status = 'primary', includeMarkdown("README_urptmdb.md")),
+                box(title = "download", status = 'primary', 
+                    
+                    "some stuff goes here"
+                    
+                ))),
       
       tabItem(tabName = "view",        
               fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
