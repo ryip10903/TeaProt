@@ -573,7 +573,7 @@ server <- function(input, output, session) {
       if(input$fgseadb == "encode"){pathway <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)}
       if(input$fgseadb == "remap"){pathway <- read.delim(file = "database/CHEA3/ReMap_ChIP-seq.gmt", header = FALSE)}
       if(input$fgseadb == "literature"){pathway <- read.delim(file = "database/CHEA3/Literature_ChIP-seq.gmt", header = FALSE)}
-      if(input$fgseadb == "urptmdb"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_1.0.gmt", header = FALSE)}
+      if(input$fgseadb == "urptmdb"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_1.0.gmt", header = TRUE) %>% dplyr::select(-V2)}
       
       pathway <- pathway %>% tidyr::unite(., col = "genes", -V1, na.rm = TRUE)
       pathway$genes <- sub("\\_\\_.*","", pathway$genes)
@@ -590,7 +590,7 @@ server <- function(input, output, session) {
       
     }
     
-    if(input$fgseadb %in% c("encode", "remap", "literature")){array <- mydata$gene_array} else {array <- mydata$array}
+    if(input$fgseadb %in% c("encode", "remap", "literature", "urptmdb")){array <- mydata$gene_array} else {array <- mydata$array}
     
     fgseaRes <- fgsea(pathways = pathways,
           stats = array,
