@@ -102,6 +102,53 @@ entrezmapping <- function(species){
   
   return(entrezids)
   
+}
+
+
+
+
+#' Test whether the input data is valid
+#'
+#' \code{validate_input} Returns TRUE if the data is valid
+#'
+#' @param df A data frame containing an ID, p-value and fold-change column
+#' 
+#' @return A boolean
+#'
+#' @examples
+#' validate_input(df)
+#' 
+validate_input <- function(df){
   
+  if(validate_size(df) == FALSE){return(validate_size(df))}
+  
+  return(validate_size(df) & validate_id(df[,1]) & validate_pval(df[,2]) & validate_fc(df[,3]))
   
 }
+
+validate_size <- function(df){
+  
+  return(nrow(df) == 3)
+  
+}
+
+validate_id <- function(x){
+  
+  return(class(x) == "character")
+  
+}
+
+validate_pval <- function(x){
+  
+  if(!(class(x) %in% c("numeric", "double"))){return(FALSE)}
+  return(range(x)[1] >= 0 & range(x)[2] <= 1)
+  
+}
+
+validate_pval <- function(x){
+  
+  return(class(x) %in% c("numeric", "double"))
+  
+}
+
+
