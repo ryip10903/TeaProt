@@ -1,3 +1,5 @@
+library(BiocManager)
+options(repos = BiocManager::repositories())
 library(shiny)
 library(shinydashboard)
 library(fgsea)
