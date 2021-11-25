@@ -1,16 +1,26 @@
-## __Please Follow the Steps below__
-### 1. Preparing your data
-Please start by preparing protein/transcript data files as described on the Welcome page. Your dataset should contain identifiers in the first column, which could either be gene names, UniProt IDs or ENSEMBL IDs. Your second column should contain the P values and your third column should contain the __"fold change values"__
+### Introduction
 
-### 2. Uploading your data
-Once the format of your data is correct, press __"browse"__ to upload your data
+### __Please Follow the Steps below__
+#### 1. Uploading your data
+* Convert the file to the right format
+  + I.E= ".csv", '.xls', '.xlsx'
+* Make sure your file contain columns of:
+  + Identifiers (gene names/ UniProt IDs/ ENSEMBL IDS)
+  + P values
+  + Fold change values
+* Once the above is checked, press __"Browse"__ to upload your data
 
-### 3. Start mapping your data
-Once your data has been uploaded successfully, press __"Start here"__ to start data mapping.
-A notification will pop up your data mapping has been completed
+#### 2. Preparing for analysis
+* Select the identifier column from the drop-down box
+* Select the p-value column from the drop-down box
+* Select the fold-change column from the drop-down box
+* Choose the type of species of which your data is sourced from
+* Choose a p-value cut off as a determinant for significance
+* Choose a (log2) fold-change cutoff as a determinant for significance
+* Press __"Start"__ to initiate analysis
 
-### 4. Start Analysis
-Click on the __"Analysis"__ tab to start your analysis
+#### 3. View analysis
+* Press __"Analysis"__ on the sidebar to view annotations
 
-### 5. Results!
+
 

@@ -80,7 +80,7 @@ ui <- dashboardPage( skin = 'black',
                   HTML("<center><p>For the annotation of Protein/transcript data.</p></center>")),
               fluidRow(
                 box(status = 'primary', includeMarkdown("README.md")),
-                box(title = "inputs", status = 'primary', 
+                box(title = "Inputs", status = 'primary', solidHeader = TRUE,
                     # Input: Select a file ----
                     fileInput("file", "Choose CSV File", multiple = FALSE, accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv", '.xls', '.xlsx')),
                     
@@ -109,7 +109,7 @@ ui <- dashboardPage( skin = 'black',
                     verbatimTextOutput("param_text"),
                     
                     # Start analysis button ----
-                    actionButton("button", 'Start Here!', style='font-weight:600' )
+                    actionButton("button", 'Start!', style='font-weight:600' )
                     ))),
       
       tabItem(tabName = "urptmdb",
@@ -127,7 +127,14 @@ ui <- dashboardPage( skin = 'black',
       
       tabItem(tabName = "view",        
               fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
-              HTML("<p align='justify'> User-uploaded input data is annotated with information from various sources, including DGIdb and HPA.</p>"))),
+              HTML("<p align='justify'> User-uploaded input data is annotated with information from various sources.
+                   The annotated table contain information of: </p>
+                   <ol>
+                      <li> Drug Interaction </li>
+                      <li> Cell ontology </li>
+                      <li> Associated disease </li>
+                  </ol>
+                   <p> Export options are available at the bottom of the table </p>"))),
               fluidRow(
                 box(title = 'Annotated table', DT::DTOutput("contents") %>% withSpinner(), width = 12) 
                 )),
@@ -139,7 +146,14 @@ ui <- dashboardPage( skin = 'black',
         fluidRow( 
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
                    HTML("<p align='justify'> Analysis are performed to analyze the p-values and fold-changes
-                        of your data.</p>"))),
+                        of your data.</p>
+                        <ol>
+                            <li> Bar graphs that show the distribution of p-values and fold-changes in the data</li>
+                            <li> Volcano plot that shows the fold-changes and corresponding p-values of each data point</li>
+                            <ul> 
+                              <li>(Hover onto each data point to view the exact values) </li>
+                            </ul>
+                        </ol>  "))),
         fluidRow(
           box( title = 'Distributions', plotOutput("histogram_pvalue") %>% withSpinner()),
           box( title = 'Volcano plot', plotly::plotlyOutput("density_pvalue") %>% withSpinner() 
