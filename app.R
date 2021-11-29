@@ -164,21 +164,37 @@ ui <- dashboardPage( skin = 'black',
       tabItem(tabName = "dugi", 
         fluidRow ( 
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
-              HTML("<p align='justify'> Analysis are performed to identify the number of genes
-                        that have known drug interactions.</p>"))),
-        fluidRow( box(title = 'Drug-gene interaction - Annotations', width = 12, plotOutput("bargraph_drug") %>% withSpinner())),
-        fluidRow( box(title = 'Subcellular localization - Annotations', width = 12, plotOutput("bargraph_loc") %>% withSpinner())),
-        fluidRow( box(title = 'IMPC procedure - Annotations', width = 12, plotOutput("bargraph_impc") %>% withSpinner())),
-        fluidRow( box(title = 'DisGeNet disease - Annotations', width = 12, plotOutput("bargraph_disgenet") %>% withSpinner())),
+              HTML("<p align='justify'> Your data is mapped with online databases to provide annotations.
+              For each sets of graphs below, your data is mapped to a different database. </p>
+                   "))),
+        fluidRow( box(title = 'Drug-gene interaction - Annotations',"1. First graph shows the
+                      number of genes in your data that are known drug targets", br(),"2. Second graph shows the frequency of 
+                      each drug target in your data", br(),
+                      width = 12, plotOutput("bargraph_drug") %>% withSpinner())),
+        fluidRow( box(title = 'Subcellular localization - Annotations', "1. First graph shows the
+                      number of genes that have known localisation", br(), "2. Second graph provides an overall view of
+                      where your gene products are localised", br(), width = 12, plotOutput("bargraph_loc") %>% withSpinner())),
+        fluidRow( box(title = 'IMPC procedure - Annotations', '#Your data is mapped with 
+                      the international mouse phenotyping consortium (IMPC)', br(), "1. First graph 
+                      shows the number of genes in your database that could be annotated by IMPC", br(), "2. Second graph
+                      shows the phenotypic functions of the genes in your database", br(), width = 12, plotOutput("bargraph_impc") %>% withSpinner())),
+        fluidRow( box(title = 'DisGeNet disease - Annotations', "# Your data is mapped to the DisgeNET database", br(), "1. First graph
+                      shows the number of genes that could be annotated by DisGeNet", br(), "2. Second graph shows the diseases that the
+                      genes in your database are involved in", br(), width = 12, plotOutput("bargraph_disgenet") %>% withSpinner())),
         fluidRow( box(title = 'BRENDA enzymatic reactions - Annotations', width = 12, plotOutput("bargraph_brenda") %>% withSpinner()))),
       
     #Gene pathway 
       tabItem(tabName = "genep",
         fluidRow(box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary', 
-        HTML("<p align='justify'> Analysis are performed to identify the number of genes
-                        that have known drug interactions.</p>"))),
+        HTML("<p align='justify'> Analysis are performed to demonstrate the changes in gene expressions
+        in relation to: </p>
+             <ol>
+                            <li> Subcellular localisation</li>
+                            <li> Associated phenotypes</li>
+                          
+                        </ol>"))),
         
-        fluidRow( box(title = "subcellular localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_loc_ui"), width = 12)),
+        fluidRow( box(title = "Subcellular localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_loc_ui"), width = 12)),
         fluidRow( box(title = "IMPC genotype-phenotype associations", plotOutput("contingency_impc") %>% withSpinner(), uiOutput("contingency_download_impc_ui"), width = 12))
         ),
               
@@ -298,7 +314,7 @@ server <- function(input, output, session) {
 
   
   output$param_text <- renderText({
-    paste("Uploaded file: ", input$file[1], "\n", "ID column: ", input$col_id, "\n", "p-value column: ", input$col_pval, "\n", "Fold-change column: ", input$col_fc, "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
+    HTML("<b>Uploaded file:</b> ", input$file[1], "\n", "ID column: ", input$col_id, "\n", "p-value column: ", input$col_pval, "\n", "Fold-change column: ", input$col_fc, "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
   })
   
   observeEvent(input$button, {
