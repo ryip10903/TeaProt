@@ -81,6 +81,12 @@ ui <- dashboardPage( skin = 'black',
               fluidRow(
                 box(status = 'primary', includeMarkdown("README.md")),
                 box(title = "Inputs", status = 'primary', solidHeader = TRUE,
+                    
+                    # Demo data
+                    HTML("<b>Download demo data</b>"), selectizeInput("demoset", label = NULL, choices = list("" ,"data/tongue_de_mouse.xlsx" = "Parker"), 
+                                                        selected = "parker", options = list(placeholder = 'Select dataset')) , htmlOutput('demoref'),uiOutput("dl_demoset_ui"),
+                    
+                    #a(href="www/tongue_de_mouse.xlsx", "Download data", download=NA, target="_blank"),
                     # Input: Select a file ----
                     fileInput("file", "Choose CSV File", multiple = FALSE, accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv", '.xls', '.xlsx')),
                     
@@ -106,7 +112,7 @@ ui <- dashboardPage( skin = 'black',
                     sliderTextInput(inputId = "param_pval", label = "Choose a p-value cutoff:", choices = c(1, 0.1, 0.05, 0.01, 0.001), selected = 0.05, grid = TRUE),
                     sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), selected = 1, grid = TRUE),
                     
-                    verbatimTextOutput("param_text"),
+                    verbatimTextOutput ("param_text"),
                     
                     # Start analysis button ----
                     actionButton("button", 'Start!', style='font-weight:600' )
@@ -165,7 +171,9 @@ ui <- dashboardPage( skin = 'black',
         fluidRow ( 
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
               HTML("<p align='justify'> Your data is mapped with online databases to provide annotations.
-              For each sets of graphs below, your data is mapped to a different database. </p>
+              For each sets of graphs below, your data is mapped to a different database.
+              The first graph of each section displays the number of genes that could be annotated by the mapped database.
+              The second graph displays the annotation</p>
                    "))),
         fluidRow( box(title = 'Drug-gene interaction - Annotations',"1. First graph shows the
                       number of genes in your data that are known drug targets", br(),"2. Second graph shows the frequency of 
@@ -181,7 +189,10 @@ ui <- dashboardPage( skin = 'black',
         fluidRow( box(title = 'DisGeNet disease - Annotations', "# Your data is mapped to the DisgeNET database", br(), "1. First graph
                       shows the number of genes that could be annotated by DisGeNet", br(), "2. Second graph shows the diseases that the
                       genes in your database are involved in", br(), width = 12, plotOutput("bargraph_disgenet") %>% withSpinner())),
-        fluidRow( box(title = 'BRENDA enzymatic reactions - Annotations', width = 12, plotOutput("bargraph_brenda") %>% withSpinner()))),
+        fluidRow( box(title = 'BRENDA enzymatic reactions - Annotations', "# Your data is mapped to the BRENDA enzyme database", br(), "
+        1. First graph shows the number of genes that could be annotated by BRENDA.", br(), "
+                      2. Second graph shows shows the number of genes that could be targetted 
+                      by enzymes from the BRENDA dabatase", width = 12, plotOutput("bargraph_brenda") %>% withSpinner()))),
       
     #Gene pathway 
       tabItem(tabName = "genep",
@@ -194,15 +205,16 @@ ui <- dashboardPage( skin = 'black',
                           
                         </ol>"))),
         
-        fluidRow( box(title = "Subcellular localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_loc_ui"), width = 12)),
-        fluidRow( box(title = "IMPC genotype-phenotype associations", plotOutput("contingency_impc") %>% withSpinner(), uiOutput("contingency_download_impc_ui"), width = 12))
+        fluidRow( box(title = "Subcellular Localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_loc_ui"), width = 12)),
+        fluidRow( box(title = "IMPC genotype-phenotype Associations", plotOutput("contingency_impc") %>% withSpinner(), uiOutput("contingency_download_impc_ui"), width = 12))
         ),
               
       #Fgsea
       tabItem(tabName = "fgseaa", 
               fluidRow(box(title = 'About the Analysis', solidHeader = TRUE, status = 'primary', 
-                           HTML("<p align='justify'> Analysis are performed to identify the number of genes
-                        that have known drug interactions.</p>")),
+                           HTML("<p align='justify'> This analysis is dependent on the fold-change values in your data. The graph displays the most enriched biological pathways
+                                that are associated with the differential expressions. In the <b> input </b> section, choose the onine database 
+                                that you want the analysis to be based on</p>")),
                        box(title ="input", solidHeader = TRUE, status = 'primary',
                            selectInput('fgseadb', 'Choose gene-sets', choices = list(Default = c(`Reactome / KEGG` = 'reactome'), MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature'), urPTMdb = c(`underrepresented PTMs` = 'urptmdb')), selectize = FALSE),
                            actionButton('buttonfg', 'Start Analysis'))),
@@ -314,7 +326,7 @@ server <- function(input, output, session) {
 
   
   output$param_text <- renderText({
-    HTML("<b>Uploaded file:</b> ", input$file[1], "\n", "ID column: ", input$col_id, "\n", "p-value column: ", input$col_pval, "\n", "Fold-change column: ", input$col_fc, "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
+    paste("Uploaded file: ", input$file[1], "\n", "ID column: ", input$col_id, "\n", "p-value column: ", input$col_pval, "\n", "Fold-change column: ", input$col_fc, "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
   })
   
   observeEvent(input$button, {
@@ -445,9 +457,37 @@ server <- function(input, output, session) {
     
   })
   
-
-
+  ## Demodata
+  output$demoref <- renderUI({
+    if(input$demoset == "Parker"){
+      HTML('
+    <table cellspacing=5>
+    <tr><td style="padding-right: 10px">Publication:</td><td><a href="https://doi.org/10.1038/s41586-019-0984-y" target="_blank">An integrative systems genetic analysis of mammalian lipid metabolism</a></td></tr>
+    <tr><td style="padding-right: 10px">Number of samples:</td><td>306</td></tr>
+    <tr><td style="padding-right: 10px">Number of proteins:</td><td>8,370</td></tr>
+    <tr><td style="padding-right: 10px">Number of pQTLs</td><td>140,104 - 571,205</td></tr>
+    <tr><td style="padding-right: 10px">Number of molQTLs</td><td>8,032</td></tr>
+    <tr><td style="padding-right: 10px">Filesize:</td><td>12.7 MB</td></tr></table><br>')
+    } })
+  
+  # Download button
+  # Downloadbutton demoset ----
+  # Downloadbutton for the zipped demo studies included in CoffeeProt (currently only Parker et al.)
+  output$dl_demoset_ui <- renderUI({
+    if(input$demoset != "")
+      downloadButton("downloadData", label = "Download Demo Dataset")
+  })
+  
+  
+  # Download demo dataset handler ----
+  output$downloadData <- downloadHandler(
+    filename <- function() {paste(input$demoset, "zip", sep=".")},
     
+    content =function(file) {message("Action: User downloaded the demo dataset")
+      file.copy(paste0("data/",input$demoset,".zip"), file)},
+    contentType = "application/zip",
+  )
+  
   ## visse analysis --------------------------------------------
   
   observeEvent(input$buttonv, {

@@ -1,6 +1,6 @@
-### Introduction
+### __Introduction__
 
-### __Please Follow the Steps below__
+### Please Follow the Steps below
 #### 1. Uploading your data
 * Convert the file to the right format
   + I.E= ".csv", '.xls', '.xlsx'
@@ -8,6 +8,7 @@
   + Identifiers (gene names/ UniProt IDs/ ENSEMBL IDS)
   + P values
   + Fold change values
+* Click __"Download demo data"__ for clarity
 * Once the above is checked, press __"Browse"__ to upload your data
 
 #### 2. Preparing for analysis
@@ -17,9 +18,11 @@
 * Choose the type of species of which your data is sourced from
 * Choose a p-value cut off as a determinant for significance
 * Choose a (log2) fold-change cutoff as a determinant for significance
+
+#### 3. Start the analysis
 * Press __"Start"__ to initiate analysis
 
-#### 3. View analysis
+#### 4. View analysis
 * Press __"Analysis"__ on the sidebar to view annotations
 
 
