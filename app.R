@@ -80,11 +80,15 @@ ui <- dashboardPage( skin = 'black',
                   HTML("<center><p>For the annotation of Protein/transcript data.</p></center>")),
               fluidRow(
                 box(status = 'primary', includeMarkdown("README.md")),
+                
+                box(title = "Demo data", status = 'primary', solidHeader = TRUE, 
+                    # Demo data
+                    HTML("<b>Download demo data</b>"), selectizeInput("demoset", label = NULL, choices = list("" ,"Mouse tongue data" = "Parker"), 
+                                                                      selected = "Parker", options = list(placeholder = 'Select dataset')) , htmlOutput('demoref'),uiOutput("dl_demoset_ui"),
+                ), 
                 box(title = "Inputs", status = 'primary', solidHeader = TRUE,
                     
-                    # Demo data
-                    HTML("<b>Download demo data</b>"), selectizeInput("demoset", label = NULL, choices = list("" ,"data/tongue_de_mouse.xlsx" = "Parker"), 
-                                                        selected = "parker", options = list(placeholder = 'Select dataset')) , htmlOutput('demoref'),uiOutput("dl_demoset_ui"),
+
                     
                     #a(href="www/tongue_de_mouse.xlsx", "Download data", download=NA, target="_blank"),
                     # Input: Select a file ----
@@ -110,7 +114,7 @@ ui <- dashboardPage( skin = 'black',
                     
                     # Input: Select significance cutoff ----
                     sliderTextInput(inputId = "param_pval", label = "Choose a p-value cutoff:", choices = c(1, 0.1, 0.05, 0.01, 0.001), selected = 0.05, grid = TRUE),
-                    sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), selected = 1, grid = TRUE),
+                    sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), selected = 0, grid = TRUE),
                     
                     verbatimTextOutput ("param_text"),
                     
@@ -462,12 +466,9 @@ server <- function(input, output, session) {
     if(input$demoset == "Parker"){
       HTML('
     <table cellspacing=5>
-    <tr><td style="padding-right: 10px">Publication:</td><td><a href="https://doi.org/10.1038/s41586-019-0984-y" target="_blank">An integrative systems genetic analysis of mammalian lipid metabolism</a></td></tr>
-    <tr><td style="padding-right: 10px">Number of samples:</td><td>306</td></tr>
-    <tr><td style="padding-right: 10px">Number of proteins:</td><td>8,370</td></tr>
-    <tr><td style="padding-right: 10px">Number of pQTLs</td><td>140,104 - 571,205</td></tr>
-    <tr><td style="padding-right: 10px">Number of molQTLs</td><td>8,032</td></tr>
-    <tr><td style="padding-right: 10px">Filesize:</td><td>12.7 MB</td></tr></table><br>')
+    <tr><td style="padding-right: 10px">Publication:</td><td><a href="https://doi.org/10.3390/proteomes9020022" target="_blank">Western Diet Induced Remodelling of the Tongue Proteome</a></td></tr>
+    <tr><td style="padding-right: 10px">Number of proteins:</td><td>5,296</td></tr>
+    <tr><td style="padding-right: 10px">Filesize:</td><td>258 KB</td></tr></table><br>')
     } })
   
   # Download button
@@ -481,11 +482,11 @@ server <- function(input, output, session) {
   
   # Download demo dataset handler ----
   output$downloadData <- downloadHandler(
-    filename <- function() {paste(input$demoset, "zip", sep=".")},
+    filename <- "tongue_de_mouse.xlsx",
     
     content =function(file) {message("Action: User downloaded the demo dataset")
-      file.copy(paste0("data/",input$demoset,".zip"), file)},
-    contentType = "application/zip",
+      file.copy(paste0("data/tongue_de_mouse.xlsx"), file)},
+    contentType = NA,
   )
   
   ## visse analysis --------------------------------------------
@@ -645,7 +646,7 @@ server <- function(input, output, session) {
       if(input$fgseadb == "encode"){pathway <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)}
       if(input$fgseadb == "remap"){pathway <- read.delim(file = "database/CHEA3/ReMap_ChIP-seq.gmt", header = FALSE)}
       if(input$fgseadb == "literature"){pathway <- read.delim(file = "database/CHEA3/Literature_ChIP-seq.gmt", header = FALSE)}
-      if(input$fgseadb == "urptmdb"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_1.0.gmt", header = TRUE) %>% dplyr::select(-V2)}
+      if(input$fgseadb == "urptmdb"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_latest.gmt", header = TRUE) %>% dplyr::select(-V2)}
       
       pathway <- pathway %>% tidyr::unite(., col = "genes", -V1, na.rm = TRUE)
       pathway$genes <- sub("\\_\\_.*","", pathway$genes)
@@ -666,7 +667,7 @@ server <- function(input, output, session) {
     
     fgseaRes <- fgsea(pathways = pathways,
           stats = array,
-          minSize = 15,
+          minSize = 5,
           maxSize = 500)
     
     mydata$fgsea_res <- fgseaRes
