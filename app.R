@@ -774,17 +774,6 @@ server <- function(input, output, session) {
       
       req(isolate(mydata$protdf))
       
-      sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
-      
-      
-      # A Density plot for P value------------------------------
-      mydata$pplot1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + theme_bw())
-  
-      p1 <- ggplot(isolate(mydata$protdf), aes(x = pvalue)) + geom_histogram(bins = 40, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
-      p2 <- ggplot(isolate(mydata$protdf), aes(x = fold_change)) + geom_histogram(bins = 100, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
-      
-      mydata$pplot2 <- (p1 + p2)
-      
       sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
       
       } 
@@ -793,14 +782,25 @@ server <- function(input, output, session) {
   
   #P value UI-1
   output$density_pvalue <- plotly::renderPlotly({ 
-    req(mydata$pplot1)
-    return(mydata$pplot1)
+    req(mydata$protdf)
+    
+    p1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + theme_bw())
+    
+    return(p1)
     })
   
   #P value UI-2
   output$histogram_pvalue <- renderPlot({ 
-    req(mydata$pplot2)
-    plot(mydata$pplot2)
+    req(mydata$protdf)
+    
+    # A Density plot for P value------------------------------
+    
+    p1 <- ggplot(isolate(mydata$protdf), aes(x = pvalue)) + geom_histogram(bins = 40, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
+    p2 <- ggplot(isolate(mydata$protdf), aes(x = fold_change)) + geom_histogram(bins = 100, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
+    
+    p <- (p1 + p2)
+    
+    plot(p)
     })
   
   
