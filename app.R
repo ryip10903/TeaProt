@@ -1,5 +1,3 @@
-library(BiocManager)
-options(repos = BiocManager::repositories())
 library(shiny)
 library(shinydashboard)
 library(fgsea)
@@ -341,12 +339,12 @@ server <- function(input, output, session) {
     
     req(input$file)
     
+    
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Data Mapping in progress", type = "warning",
                    btn_labels = NA,
                    closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
-
 
     if(sub("^.*\\.","", input$file$datapath) == "csv"){
       tryCatch(
@@ -381,6 +379,36 @@ server <- function(input, output, session) {
     
   #df is user's uploaded value
     df <- as.data.frame(df) %>% dplyr::select(input$col_id, input$col_pval, input$col_fc)
+
+    if(validate_input(df) != TRUE){
+      
+      if(validate_size(df) != TRUE){
+        
+        sendSweetAlert(session = session, title = "data size error", text = "Please confirm that the 3 required columns (ID, pval, FC) have been selected.", type = "error", btn_labels = NA, closeOnClickOutside = TRUE)
+        
+      } else{
+        
+        sendSweetAlert(session = session, title = "Error", text = "Input data not valid", type = "error", btn_labels = NA, closeOnClickOutside = TRUE)
+        
+        print(validate_id(df[,1]))
+        print(validate_pval(df[,2]))
+        print(validate_fc(df[,3]))
+        
+      }
+      
+      
+
+      
+    }
+    
+    validate(need(validate_size(df) == TRUE, label = "error", message = "input data wrong size"))
+    validate(need(validate_input(df) == TRUE, label = "error", message = "input data not validated"))
+        
+
+
+    
+    
+
     
   #converting the uploaded column names to match our commands
     names(df)[1] <- "ID"

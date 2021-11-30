@@ -128,7 +128,7 @@ validate_input <- function(df){
 
 validate_size <- function(df){
   
-  return(nrow(df) == 3)
+  return(ncol(df) == 3)
   
 }
 
@@ -145,7 +145,7 @@ validate_pval <- function(x){
   
 }
 
-validate_pval <- function(x){
+validate_fc <- function(x){
   
   return(class(x) %in% c("numeric", "double"))
   
