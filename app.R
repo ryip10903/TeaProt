@@ -81,12 +81,12 @@ ui <- dashboardPage( skin = 'black',
               fluidRow(
                 box(status = 'primary', includeMarkdown("README.md")),
                 
-                box(title = "Demo data", status = 'primary', solidHeader = TRUE, 
+                box(title = "Demo data", status = 'primary', 
                     # Demo data
-                    HTML("<b>Download demo data</b>"), selectizeInput("demoset", label = NULL, choices = list("" ,"Mouse tongue data" = "Parker"), 
+                    selectizeInput("demoset", label = NULL, choices = list("" ,"Mouse tongue data" = "Parker"), 
                                                                       selected = "Parker", options = list(placeholder = 'Select dataset')) , htmlOutput('demoref'),uiOutput("dl_demoset_ui"),
                 ), 
-                box(title = "Inputs", status = 'primary', solidHeader = TRUE,
+                box(title = "Inputs", status = 'primary', 
                     
 
                     
@@ -129,10 +129,17 @@ ui <- dashboardPage( skin = 'black',
                   HTML("<center><p style='color:White;'>The underrepresented PTM gene-set database.</p></center>")),
               fluidRow(
                 box(title = "documentation", status = 'primary', includeMarkdown("README_urptmdb.md")),
-                box(title = "download", status = 'primary', 
+                
+                box(title = "Download urPTMdb", status = 'primary', 
+
+                    HTML('
+    <table cellspacing=5>
+    <tr><td style="padding-right: 10px">Number of studies:</td><td>29</td></tr>
+    <tr><td style="padding-right: 10px">Number of PTMs:</td><td>10</td></tr>
+    <tr><td style="padding-right: 10px">Number of gene-sets:</td><td>63</td></tr>
+    <tr><td style="padding-right: 10px">Filesize:</td><td>549 KB</td></tr></table><br>'),
                     
-                    "some stuff goes here"
-                    
+                    downloadButton("downloadurptmdb", label = "Download urPTMdb"),
                 ))),
       
       tabItem(tabName = "view",        
@@ -473,11 +480,12 @@ server <- function(input, output, session) {
   
   # Download button
   # Downloadbutton demoset ----
-  # Downloadbutton for the zipped demo studies included in CoffeeProt (currently only Parker et al.)
   output$dl_demoset_ui <- renderUI({
     if(input$demoset != "")
       downloadButton("downloadData", label = "Download Demo Dataset")
   })
+  
+  
   
   
   # Download demo dataset handler ----
@@ -488,6 +496,16 @@ server <- function(input, output, session) {
       file.copy(paste0("data/tongue_de_mouse.xlsx"), file)},
     contentType = NA,
   )
+  
+  # Download demo dataset handler ----
+  output$downloadurptmdb <- downloadHandler(
+    filename <- "urptmdb_latest.gmt",
+    
+    content =function(file) {message("Action: User downloaded urPTMdb")
+      file.copy(paste0("database/urPTMdb/urptmdb_latest.gmt"), file)},
+    contentType = NA,
+  )
+  
   
   ## visse analysis --------------------------------------------
   
