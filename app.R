@@ -22,9 +22,6 @@ library(patchwork)
 #library(ggpubr)
 #library(org.Hs.eg.db)
 #library(org.Mm.eg.db)
-#library(org.Dr.eg.db)
-#library(org.Rn.eg.db)
-#library(org.Dm.eg.db)
 
 
 # Define UI for data upload app ----
@@ -110,7 +107,7 @@ ui <- dashboardPage( skin = 'black',
                     
                     # Input: Select a species ----
                     selectInput("species", "Choose Species",
-                                c("human", "mouse", "rat", "drosophila", "zebrafish")),
+                                c("human", "mouse")),
                     
                     # Input: Select significance cutoff ----
                     sliderTextInput(inputId = "param_pval", label = "Choose a p-value cutoff:", choices = c(1, 0.1, 0.05, 0.01, 0.001), selected = 0.05, grid = TRUE),
@@ -786,17 +783,16 @@ server <- function(input, output, session) {
   # Render a histogram of pvalues----------------------------
   observeEvent(input$tabs, {
     
-    if (req(input$tabs) == "PVALUE") {
+    if (input$tabs %in% c("PVALUE", "dugi", "genep")) {
       
-      if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
-      
-      req(isolate(mydata$protdf))
-      
-      sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
-      
-      } 
+      #if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
+
+    } 
   
   })
+  
+  
+
   
   #P value UI-1
   output$density_pvalue <- plotly::renderPlotly({ 
@@ -821,190 +817,157 @@ server <- function(input, output, session) {
     plot(p)
     })
   
-  
-
-  
-
-  
 
 
-  
-  # Render a bargraph for drug interaction data----------------------------
-  observeEvent(input$tabs, {
-    
-    if (req(input$tabs) == "dugi") {
-      
-      if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
-      
-      req(isolate(mydata$protdf))
-      
-      sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
-      
-      df <- mydata$protdf %>% tidyr::separate_rows(drug_name, sep = "\\|") %>% filter(drug_name != "") %>% 
-        filter(drug_name != "") %>% group_by(drug_name) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
-      
-      p1 <- (mydata$protdf %>% dplyr::select(ID, drug_name) %>% mutate(drug_name = !is.na(drug_name)) %>% group_by(ID) %>% summarise(n = sum(drug_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
-      p2 <- ggplot(df, aes(x=frequency, y=reorder(drug_name, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
-      
-      mydata$plot_anno_dgi <- (p1 + p2)
-      
-      df <- mydata$protdf %>% tidyr::separate_rows(CP_loc) %>% filter(CP_loc != "") %>% 
-        filter(CP_loc != "") %>% group_by(CP_loc) %>% summarise (frequency =n())
-      
-      p1 <- (mydata$protdf %>% dplyr::select(ID, CP_loc) %>% mutate(CP_loc = !is.na(CP_loc)) %>% group_by(ID) %>% summarise(n = sum(CP_loc)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
-      p2 <- ggplot(df, aes(x=frequency, y=reorder(CP_loc, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
-      
-      mydata$plot_anno_loc <- (p1 + p2)
-      
-      df <- mydata$protdf %>% tidyr::separate_rows(impc_significant_procedure_name, sep = "\\|") %>% filter(impc_significant_procedure_name != "") %>% 
-        filter(impc_significant_procedure_name != "") %>% group_by(impc_significant_procedure_name) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
-      
-      p1 <- (mydata$protdf %>% dplyr::select(ID, impc_significant_procedure_name) %>% mutate(impc_significant_procedure_name = !is.na(impc_significant_procedure_name)) %>% group_by(ID) %>% summarise(n = sum(impc_significant_procedure_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
-      p2 <- ggplot(df, aes(x=frequency, y=reorder(impc_significant_procedure_name, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
-      
-      mydata$plot_anno_impc <- (p1 + p2)
-      
-      
-      df <- mydata$protdf %>% tidyr::separate_rows(DisGeNet_disease, sep = "\\|") %>% filter(DisGeNet_disease != "") %>% 
-        filter(DisGeNet_disease != "") %>% group_by(DisGeNet_disease) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
-      
-      p1 <- (mydata$protdf %>% dplyr::select(ID, DisGeNet_disease) %>% mutate(DisGeNet_disease = !is.na(DisGeNet_disease)) %>% group_by(ID) %>% summarise(n = sum(DisGeNet_disease)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
-      p2 <- ggplot(df, aes(x=frequency, y=reorder(DisGeNet_disease, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
-      
-      mydata$plot_anno_disgenet <- (p1 + p2)
-      
-      df <- mydata$protdf %>% tidyr::separate_rows(reaction, sep = "\\|") %>% filter(reaction != "") %>% 
-        filter(reaction != "") %>% group_by(reaction) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
-      
-      p1 <- (mydata$protdf %>% dplyr::select(ID, reaction) %>% mutate(reaction = !is.na(reaction)) %>% group_by(ID) %>% summarise(n = sum(reaction)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
-      p2 <- ggplot(df, aes(x=frequency, y=reorder(reaction, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
-      
-      mydata$plot_anno_brenda <- (p1 + p2)
-      
-      sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
-      
-    } 
-})
   
   #annotation dgi
   output$bargraph_drug <- renderPlot({
     req(isolate(mydata$protdf))
-    plot(mydata$plot_anno_dgi)
+    
+    df <- isolate(mydata$protdf) %>% tidyr::separate_rows(drug_name, sep = "\\|") %>% filter(drug_name != "") %>% 
+      filter(drug_name != "") %>% group_by(drug_name) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
+    
+    p1 <- (isolate(mydata$protdf) %>% dplyr::select(ID, drug_name) %>% mutate(drug_name = !is.na(drug_name)) %>% group_by(ID) %>% summarise(n = sum(drug_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+    p2 <- ggplot(df, aes(x=frequency, y=reorder(drug_name, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+    
+    p <- (p1 + p2)
+    
+    plot(p)
   })
   
   #annotation loc
   output$bargraph_loc <- renderPlot({
     req(isolate(mydata$protdf))
-    plot(mydata$plot_anno_loc)
+    
+    df <- isolate(mydata$protdf) %>% tidyr::separate_rows(CP_loc) %>% filter(CP_loc != "") %>% 
+      filter(CP_loc != "") %>% group_by(CP_loc) %>% summarise (frequency =n())
+    
+    p1 <- (isolate(mydata$protdf) %>% dplyr::select(ID, CP_loc) %>% mutate(CP_loc = !is.na(CP_loc)) %>% group_by(ID) %>% summarise(n = sum(CP_loc)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+    p2 <- ggplot(df, aes(x=frequency, y=reorder(CP_loc, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+    
+    p <- (p1 + p2)
+    
+    plot(p)
   })
   
   #annotation impc
   output$bargraph_impc <- renderPlot({
     req(isolate(mydata$protdf))
-    plot(mydata$plot_anno_impc)
+    
+    df <- isolate(mydata$protdf) %>% tidyr::separate_rows(impc_significant_procedure_name, sep = "\\|") %>% filter(impc_significant_procedure_name != "") %>% 
+      filter(impc_significant_procedure_name != "") %>% group_by(impc_significant_procedure_name) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
+    
+    p1 <- (isolate(mydata$protdf) %>% dplyr::select(ID, impc_significant_procedure_name) %>% mutate(impc_significant_procedure_name = !is.na(impc_significant_procedure_name)) %>% group_by(ID) %>% summarise(n = sum(impc_significant_procedure_name)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+    p2 <- ggplot(df, aes(x=frequency, y=reorder(impc_significant_procedure_name, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+    
+    p <- (p1 + p2)
+    
+    plot(p)
   })
   
   #annotation disgenet
   output$bargraph_disgenet <- renderPlot({
     req(isolate(mydata$protdf))
-    plot(mydata$plot_anno_disgenet)
+    
+    df <- isolate(mydata$protdf) %>% tidyr::separate_rows(DisGeNet_disease, sep = "\\|") %>% filter(DisGeNet_disease != "") %>% 
+      filter(DisGeNet_disease != "") %>% group_by(DisGeNet_disease) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
+    
+    p1 <- (isolate(mydata$protdf) %>% dplyr::select(ID, DisGeNet_disease) %>% mutate(DisGeNet_disease = !is.na(DisGeNet_disease)) %>% group_by(ID) %>% summarise(n = sum(DisGeNet_disease)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+    p2 <- ggplot(df, aes(x=frequency, y=reorder(DisGeNet_disease, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+    
+    p <- (p1 + p2)
+    
+    plot(p)
   })
   
   #annotation disgenet
   output$bargraph_brenda <- renderPlot({
     req(isolate(mydata$protdf))
-    plot(mydata$plot_anno_brenda)
-  })
-  
-  
-  
-  
-  # Render a bargraph for drug interaction data----------------------------
-  observeEvent(input$tabs, {
     
-    if (req(input$tabs) == "genep") {
-      
-      if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
-      
-      req(isolate(mydata$protdf))
-      
-      sendSweetAlert(session = session, title = "Notification", btn_labels = NA, text = "Analysis in Progress", type = "warning", closeOnClickOutside = FALSE , showCloseButton = FALSE)
-      
-      # Localization analysis
-      df <- mydata$protdf %>% dplyr::select(ID, CP_loc, direction) %>% distinct()
-      
-      locs <- df$CP_loc %>% unique() %>% strsplit(., split = ";") %>% unlist() %>% unique()
-      locs <- locs[!is.na(locs)]
-      
-      contingency <- list()
-      
-      for(i in 1:length(locs)){
-        
-        df_con <- df %>% mutate(group = grepl(locs[i], .$CP_loc))
-        
-        contingency[[locs[i]]] <- c(df_con %>% filter(direction == "up" & group == TRUE) %>% nrow(),
-                               df_con %>% filter(direction == "down" & group == TRUE) %>% nrow(),
-                               df_con %>% filter(direction == "NS" & group == TRUE) %>% nrow())
-      }
-      
-      contingency[[length(locs) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
-                                               df_con %>% filter(direction == "down") %>% nrow(),
-                                               df_con %>% filter(direction == "NS") %>% nrow())
-      
-      contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(locs, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
-      
-      contingency <- contingency[rowSums(contingency) != 0,]
-      
-      chisq <- chisq.test(contingency)
-      
-      mydata$chisq_loc <- chisq
-      
-      
-      # IMPC analysis ----
-      df <- mydata$protdf %>% dplyr::select(ID, impc_significant_procedure_name, direction) %>% distinct()
-      
-      procedure <- df$impc_significant_procedure_name %>% unique() %>% strsplit(., split = "\\|") %>% unlist() %>% unique()
-      procedure <- procedure[!is.na(procedure)]
-      
-      x1 <<- df
-      x2 <<- procedure
-      
-      contingency <- list()
-      
-      for(i in 1:length(procedure)){
-        
-        df_con <- df %>% mutate(group = grepl(procedure[i], .$impc_significant_procedure_name))
-        
-        contingency[[procedure[i]]] <- c(df_con %>% filter(direction == "up" & group == TRUE) %>% nrow(),
-                                    df_con %>% filter(direction == "down" & group == TRUE) %>% nrow(),
-                                    df_con %>% filter(direction == "NS" & group == TRUE) %>% nrow())
-      }
-      
-      contingency[[length(procedure) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
-                                           df_con %>% filter(direction == "down") %>% nrow(),
-                                           df_con %>% filter(direction == "NS") %>% nrow())
-      
-      contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(procedure, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
-      
-      contingency <- contingency[rowSums(contingency) != 0,]
-      
-      chisq <- chisq.test(contingency)
-      
-      mydata$chisq_impc <- chisq
-      
-      sendSweetAlert(session = session, title = "Notification", text = "Analysis has completed!", type = "success", closeOnClickOutside = TRUE, showCloseButton = FALSE)
-      
-    } 
+    df <- isolate(mydata$protdf) %>% tidyr::separate_rows(reaction, sep = "\\|") %>% filter(reaction != "") %>% 
+      filter(reaction != "") %>% group_by(reaction) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
+    
+    p1 <- (isolate(mydata$protdf) %>% dplyr::select(ID, reaction) %>% mutate(reaction = !is.na(reaction)) %>% group_by(ID) %>% summarise(n = sum(reaction)) %>% mutate(n = (n != 0)) %>% ggplot(., aes(x = n)) + geom_bar(stat = "count", fill = "blue", alpha = 0.2, col = "black") + theme_bw())
+    p2 <- ggplot(df, aes(x=frequency, y=reorder(reaction, frequency))) + geom_bar(stat = "identity", fill = "blue", alpha = 0.2, col = "black") + theme_minimal() + labs(x = "Frequency", y = "")
+    
+    p <- (p1 + p2)
+    
+    plot(p)
   })
+  
+  
+  
+  
+
 
   # Contingency
   output$contingency_loc <- renderPlot({
-    req(isolate(mydata$protdf), isolate(mydata$chisq_loc))
+    req(isolate(mydata$protdf))
+    
+    # Localization analysis
+    df <- isolate(mydata$protdf) %>% dplyr::select(ID, CP_loc, direction) %>% distinct()
+    
+    locs <- df$CP_loc %>% unique() %>% strsplit(., split = ";") %>% unlist() %>% unique()
+    locs <- locs[!is.na(locs)]
+    
+    contingency <- list()
+    
+    for(i in 1:length(locs)){
+      
+      df_con <- df %>% mutate(group = grepl(locs[i], .$CP_loc))
+      
+      contingency[[locs[i]]] <- c(df_con %>% filter(direction == "up" & group == TRUE) %>% nrow(),
+                                  df_con %>% filter(direction == "down" & group == TRUE) %>% nrow(),
+                                  df_con %>% filter(direction == "NS" & group == TRUE) %>% nrow())
+    }
+    
+    contingency[[length(locs) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
+                                         df_con %>% filter(direction == "down") %>% nrow(),
+                                         df_con %>% filter(direction == "NS") %>% nrow())
+    
+    contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(locs, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
+    
+    contingency <- contingency[rowSums(contingency) != 0,]
+    
+    chisq <- chisq.test(contingency)
+    
+    mydata$chisq_loc <- chisq
+    
     corrplot::corrplot(mydata$chisq_loc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
   })
   
   output$contingency_impc <- renderPlot({
-    req(isolate(mydata$protdf), isolate(mydata$chisq_impc))
+    req(isolate(mydata$protdf))
+    
+    # IMPC analysis ----
+    df <- isolate(mydata$protdf) %>% dplyr::select(ID, impc_significant_procedure_name, direction) %>% distinct()
+    
+    procedure <- df$impc_significant_procedure_name %>% unique() %>% strsplit(., split = "\\|") %>% unlist() %>% unique()
+    procedure <- procedure[!is.na(procedure)]
+    
+    contingency <- list()
+    
+    for(i in 1:length(procedure)){
+      
+      df_con <- df %>% mutate(group = grepl(procedure[i], .$impc_significant_procedure_name))
+      
+      contingency[[procedure[i]]] <- c(df_con %>% filter(direction == "up" & group == TRUE) %>% nrow(),
+                                       df_con %>% filter(direction == "down" & group == TRUE) %>% nrow(),
+                                       df_con %>% filter(direction == "NS" & group == TRUE) %>% nrow())
+    }
+    
+    contingency[[length(procedure) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
+                                              df_con %>% filter(direction == "down") %>% nrow(),
+                                              df_con %>% filter(direction == "NS") %>% nrow())
+    
+    contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(procedure, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
+    
+    contingency <- contingency[rowSums(contingency) != 0,]
+    
+    chisq <- chisq.test(contingency)
+    
+    mydata$chisq_impc <- chisq
+    
     corrplot::corrplot(mydata$chisq_impc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
   })
   
