@@ -58,7 +58,7 @@ cp_idconvert <- function(data, id_type){
     uniKeys <- (AnnotationDbi::keys(org.Hs.eg.db::org.Hs.eg.db, keytype="SYMBOL")) %>%  c(., AnnotationDbi::keys(org.Mm.eg.db::org.Mm.eg.db, keytype="SYMBOL")) #Take all gene symbols from DB 
     Hs_g <- AnnotationDbi::select(org.Hs.eg.db::org.Hs.eg.db, keys=uniKeys, columns="ENSEMBL", keytype="SYMBOL") %>% bind_rows(., AnnotationDbi::select(org.Mm.eg.db::org.Mm.eg.db, keys=uniKeys, columns="ENSEMBL", keytype="SYMBOL"))
     
-    df <- left_join(data, Hs_g, by = c("ID" = "ENSEMBL")) %>% dplyr::select(-ID) %>% dplyr::select(SYMBOL, everything()) %>% dplyr::rename(., ID = SYMBOL) %>% filter(is.na(ID) == FALSE)
+    df <- left_join(data %>% mutate(ID = sub("\\..*", "", .$ID)), Hs_g, by = c("ID" = "ENSEMBL")) %>% dplyr::select(-ID) %>% dplyr::select(SYMBOL, everything()) %>% dplyr::rename(., ID = SYMBOL) %>% filter(is.na(ID) == FALSE)
     
     message("Status: Converted Ensembl Gene to Gene names")
     

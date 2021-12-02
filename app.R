@@ -407,9 +407,6 @@ server <- function(input, output, session) {
 
 
     
-    
-
-    
   #converting the uploaded column names to match our commands
     names(df)[1] <- "ID"
     names(df)[2] <- 'pvalue'
@@ -417,9 +414,19 @@ server <- function(input, output, session) {
 
     df <- df %>% mutate(ID = sub("\\;.*", "", .$ID))
     df <- df %>% mutate(ID = sub("\\:.*", "", .$ID))
+    
   #pre-made function
   #converting gene names to entrez id
     df <- cp_idconvert(df, cp_idtype(df$ID))
+    
+    if(validate_size(df) != TRUE){
+      
+      sendSweetAlert(session = session, title = "data size error", text = "Input data validated, but no ID's were converted. Please confirm that a valid ID type is present.", type = "error", btn_labels = NA, closeOnClickOutside = TRUE)
+      
+    }
+    
+    validate(need(validate_size(df) == TRUE, label = "error", message = "input data wrong size"))
+    
     
   # joining the user's data with mouse gene id
     df <- left_join(df, entrezmapping(input$species))
@@ -485,7 +492,6 @@ server <- function(input, output, session) {
     mydata$protdf <- df
     mydata$array <- array 
     mydata$gene_array <-gene_array
-    
     
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Mapping has completed! You can start your Analysis! ", type = "success",
