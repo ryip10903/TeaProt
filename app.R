@@ -167,9 +167,8 @@ ui <- dashboardPage( skin = 'black',
                             </ul>
                         </ol>  "))),
         fluidRow(
-          box( title = 'Distributions', plotOutput("histogram_pvalue") %>% withSpinner()),
-          box( title = 'Volcano plot', plotly::plotlyOutput("density_pvalue") %>% withSpinner() 
-               ))
+          box( title = 'Distributions', plotOutput("histogram_pvalue") %>% withSpinner(), uiOutput("hist_download_ui")),
+          box( title = 'Volcano plot', plotly::plotlyOutput("density_pvalue") %>% withSpinner(), uiOutput("volcano_download_ui")  ))
         ),
       
       ##Drug interaction
@@ -837,6 +836,27 @@ server <- function(input, output, session) {
     return(p1)
     })
   
+  output$volcano_download_ui <- renderUI({
+    req(isolate(mydata$protdf))
+    downloadButton("dl_volcano_image", label = "Download volcano Image")
+  })
+  
+  output$dl_volcano_image <- downloadHandler(
+    filename = function() {
+      paste("volcano_", Sys.Date(), ".svg", sep="")
+    },
+    content = function(file) {
+      
+      p <- ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + theme_bw()
+      
+      svglite::svglite(filename = file, width = 4, height = 3)
+      plot(p)
+      dev.off()
+    }
+  )
+  
+  
+  
   #P value UI-2
   output$histogram_pvalue <- renderPlot({ 
     req(mydata$protdf)
@@ -851,6 +871,27 @@ server <- function(input, output, session) {
     plot(p)
     })
   
+  output$hist_download_ui <- renderUI({
+    req(isolate(mydata$protdf))
+      downloadButton("dl_hist_image", label = "Download histogram Image")
+  })
+  
+  output$dl_hist_image <- downloadHandler(
+    filename = function() {
+      paste("distribution_histogram_", Sys.Date(), ".svg", sep="")
+    },
+    content = function(file) {
+      
+      p1 <- ggplot(isolate(mydata$protdf), aes(x = pvalue)) + geom_histogram(bins = 40, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
+      p2 <- ggplot(isolate(mydata$protdf), aes(x = fold_change)) + geom_histogram(bins = 100, fill = "blue", alpha = 0.2) + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0)) + theme_bw()
+      
+      p <- (p1 + p2)
+      
+      svglite::svglite(filename = file, width = 8, height = 3)
+      plot(p)
+      dev.off()
+    }
+  )
 
 
   
@@ -1007,7 +1048,10 @@ server <- function(input, output, session) {
   
   output$contingency_download_loc_ui <- renderUI({
     req(isolate(mydata$chisq_loc))
-    downloadButton("dl_contingency_loc", label = "Download contingency - Localization")
+    tagList(
+      downloadButton("dl_contingency_loc", label = "Download contingency - Localization Table"),
+      downloadButton("dl_contingency_loc_image", label = "Download contingency - Localization Image")
+    )
   })
   
   output$dl_contingency_loc <- downloadHandler(
@@ -1021,9 +1065,26 @@ server <- function(input, output, session) {
     }
   )
   
+  output$dl_contingency_loc_image <- downloadHandler(
+    filename = function() {
+      paste("contingency_localization_", Sys.Date(), ".svg", sep="")
+    },
+    content = function(file) {
+      svglite::svglite(filename = file, width = 15, height = 8)
+      corrplot::corrplot(mydata$chisq_loc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
+      dev.off()
+    }
+  )
+  
+  
+  
+  
   output$contingency_download_impc_ui <- renderUI({
     req(isolate(mydata$chisq_loc))
-    downloadButton("dl_contingency_impc", label = "Download contingency - IMPC")
+    tagList(
+      downloadButton("dl_contingency_impc", label = "Download contingency - IMPC Table"),
+      downloadButton("dl_contingency_impc_image", label = "Download contingency - IMPC Image")
+    )
   })
   
   output$dl_contingency_impc <- downloadHandler(
@@ -1034,6 +1095,17 @@ server <- function(input, output, session) {
       write.csv(cbind(mydata$chisq_impc$observed %>% `colnames<-`(paste(colnames(.), "observed", sep = "_")),
                       round(mydata$chisq_impc$expected,1) %>% `colnames<-`(paste(colnames(.), "expected", sep = "_")),
                       round(mydata$chisq_impc$residuals,1) %>% `colnames<-`(paste(colnames(.), "residuals", sep = "_"))), file)
+    }
+  )
+  
+  output$dl_contingency_impc_image <- downloadHandler(
+    filename = function() {
+      paste("contingency_impc_", Sys.Date(), ".svg", sep="")
+    },
+    content = function(file) {
+      svglite::svglite(filename = file, width = 15, height = 8)
+      corrplot::corrplot(mydata$chisq_impc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
+      dev.off()
     }
   )
   
