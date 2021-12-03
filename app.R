@@ -227,7 +227,7 @@ ui <- dashboardPage( skin = 'black',
         
         fluidRow(tabBox(title = "FGSEA", id = "tabset1", width = 6, 
                         tabPanel("panel", height = "60vh", selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)), plotOutput("fgseaplot") %>% withSpinner()), 
-                        tabPanel("single", height = "60vh", uiOutput("fgsea_select_ui"), plotOutput("fgseaplot_single") %>% withSpinner()), 
+                        tabPanel("single", height = "60vh", uiOutput("fgsea_select_ui"), fluidRow(column(5,plotOutput("fgseaplot_single") %>% withSpinner()), column(7,plotly::plotlyOutput("volcano_single") %>% withSpinner()))), 
                         tabPanel("volcano", height = "60vh", plotly::plotlyOutput("fgseaplot_volcano") %>% withSpinner())),
                  box(title = "FGSEA - Table", width = 6, DT::dataTableOutput("fgseatable") ))),
       
@@ -776,6 +776,26 @@ server <- function(input, output, session) {
     
   })
   
+  
+  output$volcano_single <- plotly::renderPlotly({ 
+    req(mydata$protdf, input$fgsea_select, mydata$fgsea_pathways)
+    
+    pathways <- isolate(mydata$fgsea_pathways)
+    
+    df <- isolate(mydata$protdf) %>% mutate(target = toupper(ID) %in% toupper(pathways[[input$fgsea_select]])) %>% arrange(target)
+    
+    x2 <<- pathways[[input$fgsea_select]]
+    x3 <<- mydata$protdf
+    
+    p1 <- plotly::ggplotly(ggplot(df,aes(y=-log10(pvalue), x=fold_change, label = ID, col = target)) + geom_point() + theme_bw() + scale_color_manual(values = c("TRUE" = "blue", "FALSE" = "#AAAAEE15")))
+    
+    return(p1)
+  })
+  
+  
+  
+  
+  
   output$fgseatable <- DT::renderDataTable(server = FALSE, {
     
     req(mydata$fgsea_res)
@@ -849,7 +869,7 @@ server <- function(input, output, session) {
       
       p <- ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + theme_bw()
       
-      svglite::svglite(filename = file, width = 4, height = 3)
+      svglite::svglite(filename = file, width = 2.5, height = 2.5)
       plot(p)
       dev.off()
     }
@@ -887,7 +907,7 @@ server <- function(input, output, session) {
       
       p <- (p1 + p2)
       
-      svglite::svglite(filename = file, width = 8, height = 3)
+      svglite::svglite(filename = file, width = 5, height = 2.5)
       plot(p)
       dev.off()
     }
@@ -1008,7 +1028,7 @@ server <- function(input, output, session) {
     
     mydata$chisq_loc <- chisq
     
-    corrplot::corrplot(mydata$chisq_loc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
+    corrplot::corrplot(mydata$chisq_loc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_loc$residuals)), ceiling(max(mydata$chisq_loc$residuals))))
   })
   
   output$contingency_impc <- renderPlot({
@@ -1043,7 +1063,7 @@ server <- function(input, output, session) {
     
     mydata$chisq_impc <- chisq
     
-    corrplot::corrplot(mydata$chisq_impc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
+    corrplot::corrplot(mydata$chisq_impc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_impc$residuals)), ceiling(max(mydata$chisq_impc$residuals))))
   })
   
   output$contingency_download_loc_ui <- renderUI({
@@ -1071,7 +1091,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       svglite::svglite(filename = file, width = 15, height = 8)
-      corrplot::corrplot(mydata$chisq_loc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
+      corrplot::corrplot(mydata$chisq_loc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_loc$residuals)), ceiling(max(mydata$chisq_loc$residuals))))
       dev.off()
     }
   )
@@ -1104,7 +1124,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       svglite::svglite(filename = file, width = 15, height = 8)
-      corrplot::corrplot(mydata$chisq_impc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0))
+      corrplot::corrplot(mydata$chisq_impc$residuals %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_impc$residuals)), ceiling(max(mydata$chisq_impc$residuals))))
       dev.off()
     }
   )
