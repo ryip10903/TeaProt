@@ -227,7 +227,7 @@ ui <- dashboardPage( skin = 'black',
         
         fluidRow(tabBox(title = "FGSEA", id = "tabset1", width = 6, 
                         tabPanel("panel", height = "60vh", selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)), plotOutput("fgseaplot") %>% withSpinner()), 
-                        tabPanel("single", height = "60vh", uiOutput("fgsea_select_ui"), fluidRow(column(5,plotOutput("fgseaplot_single") %>% withSpinner()), column(7,plotly::plotlyOutput("volcano_single") %>% withSpinner()))), 
+                        tabPanel("single", height = "60vh", uiOutput("fgsea_select_ui"), fluidRow(column(5,plotOutput("fgseaplot_single") %>% withSpinner()), column(7,plotly::plotlyOutput("volcano_single") %>% withSpinner())), uiOutput("volcano_single_download_ui")), 
                         tabPanel("volcano", height = "60vh", plotly::plotlyOutput("fgseaplot_volcano") %>% withSpinner())),
                  box(title = "FGSEA - Table", width = 6, DT::dataTableOutput("fgseatable") ))),
       
@@ -792,6 +792,53 @@ server <- function(input, output, session) {
     return(p1)
   })
   
+  
+  output$volcano_single_download_ui <- renderUI({
+    req(mydata$protdf, input$fgsea_select, mydata$fgsea_pathways)
+    tagList(
+      downloadButton("dl_enrichment_single_image", label = "Download enrichment Image"),
+      downloadButton("dl_volcano_single_image", label = "Download volcano Image")
+      
+    )
+  })
+
+  
+  output$dl_enrichment_single_image <- downloadHandler(
+    filename = function() {
+      paste("enrichment_fgsea", Sys.Date(), ".svg", sep="")
+    },
+    content = function(file) {
+      
+      array <- isolate(mydata$fgsea_array)
+      pathways <- isolate(mydata$fgsea_pathways)
+      
+      
+      p <- plotEnrichment(pathways[[input$fgsea_select]], array) + labs(title=input$fgsea_select)
+
+      svglite::svglite(filename = file, width = 6, height = 3)
+      plot(p)
+      dev.off()
+    }
+  )
+  
+    
+  output$dl_volcano_single_image <- downloadHandler(
+    filename = function() {
+      paste("volcano_fgsea", Sys.Date(), ".svg", sep="")
+    },
+    content = function(file) {
+      
+      pathways <- isolate(mydata$fgsea_pathways)
+      
+      df <- isolate(mydata$protdf) %>% mutate(target = toupper(ID) %in% toupper(pathways[[input$fgsea_select]])) %>% arrange(target)
+      
+      p <- ggplot(df,aes(y=-log10(pvalue), x=fold_change, label = ID, col = target)) + geom_point() + theme_bw() + scale_color_manual(values = c("TRUE" = "blue", "FALSE" = "#AAAAEE15")) + theme(legend.position = "null")
+      
+      svglite::svglite(filename = file, width = 2.5, height = 2.5)
+      plot(p)
+      dev.off()
+    }
+  )
   
   
   
