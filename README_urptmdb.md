@@ -7,3 +7,6 @@ If you have used urPTMdb please cite:
 
 ### generate
 The code to generate urPTMdb is accessible at github.com/JeffreyMolendijk/urPTMdb.
+
+### using urPTMdb
+urPTMdb is included as an option in the fgsea tab of TeaProt for analysis of your uploaded dataset. Alternatively, urPTMdb can be downloaded for use in external tools by clicking the download button on the right.
