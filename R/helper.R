@@ -141,7 +141,7 @@ validate_id <- function(x){
 validate_pval <- function(x){
   
   if(!(class(x) %in% c("numeric", "double"))){return(FALSE)}
-  return(range(x)[1] >= 0 & range(x)[2] <= 1)
+  return(range(x, na.rm = TRUE)[1] >= 0 & range(x, na.rm = TRUE)[2] <= 1)
   
 }
 

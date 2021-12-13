@@ -274,7 +274,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$file, {
     
-    if(sub("^.*\\.","", input$file$datapath) %in% c("csv", "txt", "xls", "xlsx")){
+    if(sub("^.*\\.","", input$file$datapath) %in% c("csv", "txt", "xls", "xlsx", "XLSX")){
     
     if(sub("^.*\\.","", input$file$datapath) == "csv"){
       tryCatch(
@@ -296,7 +296,9 @@ server <- function(input, output, session) {
         }
       )
     } else if(sub("^.*\\.","", input$file$datapath) == "xls" | 
-              sub("^.*\\.","", input$file$datapath) == "xlsx") {
+              sub("^.*\\.","", input$file$datapath) == "xlsx"|
+              sub("^.*\\.","", input$file$datapath) == "XLS" |
+              sub("^.*\\.","", input$file$datapath) == "XLSX") {
       tryCatch(
         {
           df <- readxl::read_excel(path = input$file$datapath, guess_max = 21474836, na = c("NA", "Na", "NaN", "NAN", "na", "nan"))
@@ -365,7 +367,9 @@ server <- function(input, output, session) {
         }
       )
     } else if(sub("^.*\\.","", input$file$datapath) == "xls" | 
-              sub("^.*\\.","", input$file$datapath) == "xlsx") {
+              sub("^.*\\.","", input$file$datapath) == "xlsx"|
+              sub("^.*\\.","", input$file$datapath) == "XLS" |
+              sub("^.*\\.","", input$file$datapath) == "XLSX") {
       tryCatch(
         {
           df <- readxl::read_excel(path = input$file$datapath, guess_max = 21474836, na = c("NA", "Na", "NaN", "NAN", "na", "nan"))
@@ -376,9 +380,13 @@ server <- function(input, output, session) {
       )
     }
     
+    x1 <<- df
+    
   #df is user's uploaded value
     df <- as.data.frame(df) %>% dplyr::select(input$col_id, input$col_pval, input$col_fc)
 
+    x2 <<- df
+    
     if(validate_input(df) != TRUE){
       
       if(validate_size(df) != TRUE){
