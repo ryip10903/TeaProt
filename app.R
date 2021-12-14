@@ -221,7 +221,7 @@ ui <- dashboardPage( skin = 'black',
                                 that are associated with the differential expressions. In the <b> input </b> section, choose the onine database 
                                 that you want the analysis to be based on</p>")),
                        box(title ="input", solidHeader = TRUE, status = 'primary',
-                           selectInput('fgseadb', 'Choose gene-sets', choices = list(Default = c(`Reactome / KEGG` = 'reactome'), MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature'), urPTMdb = c(`underrepresented PTMs` = 'urptmdb')), selectize = FALSE),
+                           selectInput('fgseadb', 'Choose gene-sets', choices = list(MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature'), urPTMdb = c(`underrepresented PTMs` = 'urptmdb')), selectize = FALSE),
                            actionButton('buttonfg', 'Start Analysis'))),
               
         
@@ -380,13 +380,9 @@ server <- function(input, output, session) {
       )
     }
     
-    x1 <<- df
-    
   #df is user's uploaded value
     df <- as.data.frame(df) %>% dplyr::select(input$col_id, input$col_pval, input$col_fc)
 
-    x2 <<- df
-    
     if(validate_input(df) != TRUE){
       
       if(validate_size(df) != TRUE){
@@ -675,7 +671,7 @@ server <- function(input, output, session) {
     if(!exists('mydata$array')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
     
     
-    req(mydata$array, input$fgnumber, input$fgseadb)
+    req(mydata$array, input$fgnumber, input$fgseadb, input$species)
     
     sendSweetAlert(session = session, title = "Notification",
                    btn_labels = NA,
@@ -687,7 +683,8 @@ server <- function(input, output, session) {
     
     if(input$fgseadb %in% c("h", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8")){
       
-      msigdb_mm =  msigdb::msigdb.v7.2.mm.EZID()
+      if(input$species == "mouse"){msigdb_mm =  msigdb::msigdb.v7.2.mm.EZID()} else {msigdb_mm =  msigdb::msigdb.v7.2.hs.EZID()}
+      
       msigdb_mm = appendKEGG(msigdb_mm)
       msigdb_mm = subsetCollection(msigdb_mm, input$fgseadb)
       genedb <- geneIds(msigdb_mm)
@@ -725,6 +722,10 @@ server <- function(input, output, session) {
           stats = array,
           minSize = 5,
           maxSize = 500)
+    
+    x1 <<- pathways
+    x2 <<- array
+    x3 <<- fgseaRes
     
     mydata$fgsea_res <- fgseaRes
     mydata$fgsea_array <- array
