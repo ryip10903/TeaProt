@@ -408,7 +408,6 @@ server <- function(input, output, session) {
     validate(need(validate_input(df) == TRUE, label = "error", message = "input data not validated"))
         
 
-
     
   #converting the uploaded column names to match our commands
     names(df)[1] <- "ID"
@@ -417,6 +416,7 @@ server <- function(input, output, session) {
 
     df <- df %>% mutate(ID = sub("\\;.*", "", .$ID))
     df <- df %>% mutate(ID = sub("\\:.*", "", .$ID))
+    
     
   #pre-made function
   #converting gene names to entrez id
@@ -429,6 +429,7 @@ server <- function(input, output, session) {
     }
     
     validate(need(validate_size(df) == TRUE, label = "error", message = "input data wrong size"))
+    
     
     
   # joining the user's data with mouse gene id
@@ -444,6 +445,7 @@ server <- function(input, output, session) {
     
     df <- left_join(df, db_dgidb, by = c("ID" = "gene_name"))
   
+    
   
   # joining user's data with gene location data
     # Load Human Protein Atlas, but edit to include ancestor localization terms for more accurate overlap
@@ -460,14 +462,15 @@ server <- function(input, output, session) {
     
     df <- left_join (df, db_hpa, by = c('ID' = 'Gene'))
     
+    
     # Annotate IMCP data
     db_impc_procedure <- read.csv("database/IMPC/impc_procedure.csv") %>% mutate(marker_symbol = tolower(marker_symbol)) %>% mutate(gene_id = as.character(gene_id)) 
     db_impc_parameter <- read.csv("database/IMPC/impc_parameter.csv") %>% mutate(marker_symbol = tolower(marker_symbol)) %>% mutate(gene_id = as.character(gene_id)) 
     
     if(input$species != "mouse"){
-      df <- left_join(df, db_impc_procedure %>% dplyr::select(1,2), by = c('ID' = "marker_symbol")) %>% left_join(., db_impc_parameter %>% dplyr::select(1,2), by = c('ID' = "marker_symbol"))
+      df <- left_join(df, db_impc_procedure %>% dplyr::select(1,2) %>% distinct(), by = c('ID' = "marker_symbol")) %>% left_join(., db_impc_parameter %>% dplyr::select(1,2) %>% distinct(), by = c('ID' = "marker_symbol"))
     } else {
-      df <- left_join(df, db_impc_procedure %>% dplyr::select(3,2), by = c('EntrezGeneID' = "gene_id")) %>% left_join(., db_impc_parameter %>% dplyr::select(3,2), by = c('EntrezGeneID' = "gene_id"))
+      df <- left_join(df, db_impc_procedure %>% dplyr::select(3,2) %>% distinct(), by = c('EntrezGeneID' = "gene_id")) %>% left_join(., db_impc_parameter %>% dplyr::select(3,2) %>% distinct(), by = c('EntrezGeneID' = "gene_id"))
     }
     
     # Annotate DisGeNet data
@@ -500,6 +503,7 @@ server <- function(input, output, session) {
                    text = "Mapping has completed! You can start your Analysis! ", type = "success",
                    closeOnClickOutside = TRUE, showCloseButton = FALSE)
     
+
   })
   
   ## Demodata
@@ -722,10 +726,6 @@ server <- function(input, output, session) {
           stats = array,
           minSize = 5,
           maxSize = 500)
-    
-    x1 <<- pathways
-    x2 <<- array
-    x3 <<- fgseaRes
     
     mydata$fgsea_res <- fgseaRes
     mydata$fgsea_array <- array
