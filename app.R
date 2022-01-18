@@ -46,8 +46,8 @@ ui <- dashboardPage( skin = 'black',
               menuSubItem("p-value & fold change", tabName = "PVALUE", icon= icon("info-circle")),
               menuSubItem("annotations", tabName = "dugi", icon= icon("chart-bar")),
               menuSubItem("enrichment", tabName = "genep",icon= icon("ellipsis-v")),
-              menuSubItem("Fgsea analysis", tabName = "fgseaa"),
-              menuSubItem('vissE analysis', tabName = 'vvss')
+              menuSubItem("Fgsea analysis", tabName = "fgseaa")
+              #menuSubItem('vissE analysis', tabName = 'vvss')
               )
 
 
@@ -863,8 +863,10 @@ server <- function(input, output, session) {
     df[,4] <- formatC(as.data.frame(df)[,4], digits = 3) 
     df[,5] <- formatC(as.data.frame(df)[,5], digits = 3) 
     df[,6] <- formatC(as.data.frame(df)[,6], digits = 3) 
-    
-    return(DT::datatable(df, extensions = 'Buttons', rownames = FALSE, options = list(dom = 'tpB', fixedColumns = TRUE, autoWidth = FALSE, pagingType = "numbers", scrollX = T, buttons = c('copy', 'csv', 'excel','pdf'))) %>%
+
+    return(DT::datatable(df, extensions = 'Buttons', rownames = FALSE, options = list(dom = 'tpB', fixedColumns = TRUE, autoWidth = FALSE, pagingType = "numbers", scrollX = T, buttons = list(
+      list(extend = 'csv', filename = paste("fgsea_", input$fgseadb, "_", Sys.Date(), sep="")),
+      list(extend = 'excel', filename = paste("fgsea_", input$fgseadb, "_", Sys.Date(), sep="")) ))) %>%
              DT::formatStyle(columns = colnames(data), fontSize = '80%'))
     
   })
@@ -882,7 +884,9 @@ server <- function(input, output, session) {
   
     df[,3] <- formatC(as.data.frame(df)[,3], digits = 3) 
   
-    return(DT::datatable(df, extensions = 'Buttons', rownames = FALSE, options = list(dom = 'tpB', fixedColumns = TRUE, autoWidth = FALSE, pagingType = "numbers", scrollX = T, buttons = c('copy', 'csv', 'excel','pdf'))) %>%
+    return(DT::datatable(df, extensions = 'Buttons', rownames = FALSE, options = list(dom = 'tpB', fixedColumns = TRUE, autoWidth = FALSE, pagingType = "numbers", scrollX = T, buttons = list(
+      list(extend = 'csv', filename = paste("TeaProt_annotated_data_", Sys.Date(), sep="")),
+      list(extend = 'excel', filename = paste("TeaProt_annotated_data_", Sys.Date(), sep="")) ) )) %>%
       DT::formatStyle(columns = colnames(data), fontSize = '80%'))
     
   })
