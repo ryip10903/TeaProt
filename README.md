@@ -1,29 +1,50 @@
 ### __Introduction__
 
-### Please Follow the Steps below
+<br>
+<br>
+
+---
+
+<br>
+### __Tutorial__
 #### 1. Uploading your data
 * Convert the file to the right format
-  + I.E= ".csv", '.xls', '.xlsx'
-* Make sure your file contain columns of:
-  + Identifiers (gene names/ UniProt IDs/ ENSEMBL IDS)
-  + P values
-  + Fold change values
+  + accepted formats include '.csv', '.txt', '.xls', '.xlsx'
+* Make sure your file contains the following types of columns:
+  + Identifiers (gene names/ UniProt ID/ ENSEMBL ID)
+  + P-values
+  + Fold change values (log2)
 * Click __"Download demo data"__ for clarity
 * Once the above is checked, press __"Browse"__ to upload your data
 
 #### 2. Preparing for analysis
 * Select the identifier column from the drop-down box
 * Select the p-value column from the drop-down box
-* Select the fold-change column from the drop-down box
+* Select the fold change column from the drop-down box
 * Choose the type of species of which your data is sourced from
 * Choose a p-value cut off as a determinant for significance
-* Choose a (log2) fold-change cutoff as a determinant for significance
+* Choose a (log2) fold change cutoff as a determinant for significance
 
 #### 3. Start the analysis
 * Press __"Start"__ to initiate analysis
 
 #### 4. View analysis
-* Press __"Analysis"__ on the sidebar to view annotations
+* Press __"Analysis"__ on the sidebar to view the results and annotated datasets
 
+<br>
+<br>
 
+---
+
+<br>
+
+### __Resources__
+TeaProt relies on information from several databases to allow the annotation of user-uploaded data.
+* BRENDA
+* IMPC
+* DGIdb
+* Human cell atlass
+* CHEA3
+* MSigDB
+* CoffeeProt
 

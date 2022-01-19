@@ -123,16 +123,16 @@ ui <- dashboardPage( skin = 'black',
                   background-size: cover;", HTML("<center><h1 style='color:White;'>urPTMdb</h1></center>"),
                   HTML("<center><p style='color:White;'>The underrepresented PTM gene-set database.</p></center>")),
               fluidRow(
-                box(title = "documentation", status = 'primary', includeMarkdown("README_urptmdb.md")),
+                box(status = 'primary', includeMarkdown("README_urptmdb.md")),
                 
                 box(title = "Download urPTMdb", status = 'primary', 
 
                     HTML('
     <table cellspacing=5>
-    <tr><td style="padding-right: 10px">Number of studies:</td><td>29</td></tr>
-    <tr><td style="padding-right: 10px">Number of PTMs:</td><td>10</td></tr>
-    <tr><td style="padding-right: 10px">Number of gene-sets:</td><td>63</td></tr>
-    <tr><td style="padding-right: 10px">Filesize:</td><td>549 KB</td></tr></table><br>'),
+    <tr><td style="padding-right: 10px">Number of studies:</td><td>59</td></tr>
+    <tr><td style="padding-right: 10px">Number of PTMs:</td><td>19</td></tr>
+    <tr><td style="padding-right: 10px">Number of gene-sets:</td><td>141</td></tr>
+    <tr><td style="padding-right: 10px">Filesize:</td><td>1,108 KB</td></tr></table><br>'),
                     
                     downloadButton("downloadurptmdb", label = "Download urPTMdb"),
                 ))),
