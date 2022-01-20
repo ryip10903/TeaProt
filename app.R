@@ -72,7 +72,7 @@ ui <- dashboardPage( skin = 'black',
               div(class = "jumbotron", style="background-image: url(dna-banner.svg); 
               background-color:white;
                   background-size: cover;", HTML("<center><h1>Welcome to TeaProt!</h1></center>"),
-                  HTML("<center><p>For the annotation of Protein/transcript data.</p></center>")),
+                  HTML("<center><p>The online proteomics/transcriptomics analysis pipeline featuring novel underrepresented PTM genesets.</p></center>")),
               fluidRow(
                 box(status = 'primary', includeMarkdown("README.md")),
                 
@@ -129,7 +129,7 @@ ui <- dashboardPage( skin = 'black',
 
                     HTML('
     <table cellspacing=5>
-    <tr><td style="padding-right: 10px">Number of studies:</td><td>59</td></tr>
+    <tr><td style="padding-right: 10px">Number of studies:</td><td>58</td></tr>
     <tr><td style="padding-right: 10px">Number of PTMs:</td><td>19</td></tr>
     <tr><td style="padding-right: 10px">Number of gene-sets:</td><td>141</td></tr>
     <tr><td style="padding-right: 10px">Filesize:</td><td>1,108 KB</td></tr></table><br>'),
@@ -180,24 +180,11 @@ ui <- dashboardPage( skin = 'black',
               The first graph of each section displays the number of genes that could be annotated by the mapped database.
               The second graph displays the annotation</p>
                    "))),
-        fluidRow( box(title = 'Drug-gene interaction - Annotations',"1. First graph shows the
-                      number of genes in your data that are known drug targets", br(),"2. Second graph shows the frequency of 
-                      each drug target in your data", br(),
-                      width = 12, plotOutput("bargraph_drug") %>% withSpinner())),
-        fluidRow( box(title = 'Subcellular localization - Annotations', "1. First graph shows the
-                      number of genes that have known localisation", br(), "2. Second graph provides an overall view of
-                      where your gene products are localised", br(), width = 12, plotOutput("bargraph_loc") %>% withSpinner())),
-        fluidRow( box(title = 'IMPC procedure - Annotations', '#Your data is mapped with 
-                      the international mouse phenotyping consortium (IMPC)', br(), "1. First graph 
-                      shows the number of genes in your database that could be annotated by IMPC", br(), "2. Second graph
-                      shows the phenotypic functions of the genes in your database", br(), width = 12, plotOutput("bargraph_impc") %>% withSpinner())),
-        fluidRow( box(title = 'DisGeNet disease - Annotations', "# Your data is mapped to the DisgeNET database", br(), "1. First graph
-                      shows the number of genes that could be annotated by DisGeNet", br(), "2. Second graph shows the diseases that the
-                      genes in your database are involved in", br(), width = 12, plotOutput("bargraph_disgenet") %>% withSpinner())),
-        fluidRow( box(title = 'BRENDA enzymatic reactions - Annotations', "# Your data is mapped to the BRENDA enzyme database", br(), "
-        1. First graph shows the number of genes that could be annotated by BRENDA.", br(), "
-                      2. Second graph shows shows the number of genes that could be targetted 
-                      by enzymes from the BRENDA dabatase", width = 12, plotOutput("bargraph_brenda") %>% withSpinner()))),
+        fluidRow( box(title = 'Drug-gene interaction', width = 12, plotOutput("bargraph_drug") %>% withSpinner())),
+        fluidRow( box(title = 'Subcellular localization', width = 12, plotOutput("bargraph_loc") %>% withSpinner())),
+        fluidRow( box(title = 'IMPC procedure', width = 12, plotOutput("bargraph_impc") %>% withSpinner())),
+        fluidRow( box(title = 'DisGeNet disease', width = 12, plotOutput("bargraph_disgenet") %>% withSpinner())),
+        fluidRow( box(title = 'BRENDA enzymatic reactions', width = 12, plotOutput("bargraph_brenda") %>% withSpinner()))),
       
     #Gene pathway 
       tabItem(tabName = "genep",

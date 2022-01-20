@@ -1,5 +1,5 @@
 ### __urPTMdb__
-<p>urPTMdb is a database of gene-sets covering currently underrepresented post-translational moditications (PTMs). Previously published studies and datasets (PRIDE / MASSIVE) are analyzed to identify substrates or interactions relating to PTMs. We have analyzed the results of 59 studies, generating 141 gene-sets covering 19 underrepresented PTMs. Additionally, we generated pathway gene-sets of the primary enzymes involved in the PTMs, as well as consensus gene-sets where replicate studies were available.</p>
+<p>urPTMdb is a database of gene-sets covering currently underrepresented post-translational moditications (PTMs). Previously published studies and datasets (PRIDE / MASSIVE) are analyzed to identify substrates or interactions relating to PTMs. We have analyzed the results of 58 studies, generating 141 gene-sets covering 19 underrepresented PTMs. Additionally, we generated pathway gene-sets of the primary enzymes involved in the PTMs, as well as consensus gene-sets where replicate studies were available.</p>
 
 <br>
 
