@@ -1,11 +1,14 @@
 ### __Introduction__
 
+TeaProt is an online Shiny tool that integrates upstream transcription factor enrichment analysis with downstream pathway analysis through an easy-to-use interactive interface. TeaProt maps user’s omics data with online databases to provide a collection of annotations on drug-gene interactions, subcellular localizations, phenotypic functions, gene-disease associations and enzyme-gene interactions, usefull for further analyses. Users can combine TeaProt and urPTMdb for a novel and easy-to-use online proteomics/transcriptomics analysis pipeline featuring novel underrepresented genesets to allow the discovery of downstream cellular processes, upstream transcriptional regulation and classes of PTMs potentially regulated by a users’ intervention. 
+
 <br>
 <br>
 
 ---
 
 <br>
+
 ### __Tutorial__
 #### 1. Uploading your data
 * Convert the file to the right format
