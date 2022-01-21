@@ -130,7 +130,7 @@ ui <- dashboardPage( skin = 'black',
                     HTML('
     <table cellspacing=5>
     <tr><td style="padding-right: 10px">Number of studies:</td><td>58</td></tr>
-    <tr><td style="padding-right: 10px">Number of PTMs:</td><td>19</td></tr>
+    <tr><td style="padding-right: 10px">Number of PTMs:</td><td>18</td></tr>
     <tr><td style="padding-right: 10px">Number of gene-sets:</td><td>141</td></tr>
     <tr><td style="padding-right: 10px">Filesize:</td><td>1,108 KB</td></tr></table><br>'),
                     
