@@ -7,7 +7,7 @@
 
 <br>
 
-### __citation__
+### __Citation__
 <p>The TeaProt / urPTMdb manuscript is currently under review. We will update this section with citation details following publication.</p>
 
 <br>
@@ -16,7 +16,7 @@
 
 <br>
 
-### __code access__
+### __Code access__
 <p>The code to generate urPTMdb is accessible at github.com/JeffreyMolendijk/urPTMdb.</p>
 
 <br>
@@ -25,5 +25,5 @@
 
 <br>
 
-### __using urPTMdb__
-<p>urPTMdb is included as an option in the fgsea tab of TeaProt for analysis of your uploaded dataset. Alternatively, urPTMdb can be downloaded for use in external tools by clicking the download button on the right.</p>
+### __Using urPTMdb__
+<p>urPTMdb is included as an option in the fgsea tab of TeaProt for analysis of your uploaded dataset. Alternatively, urPTMdb can be downloaded for use in external tools by clicking the download button on the right. urPTMdb is provided in '.gmt' format.</p>
