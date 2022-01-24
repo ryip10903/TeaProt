@@ -206,6 +206,8 @@ ui <- dashboardPage( skin = 'black',
                         </ol>"))),
         
         fluidRow( box(title = "Subcellular Localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_loc_ui"), width = 12)),
+        fluidRow( box(title = "DisGeNet", plotOutput("contingency_disgenet") %>% withSpinner(), uiOutput("contingency_download_disgenet_ui"), width = 12)),
+        fluidRow( box(title = "Drug-gene interactions", plotOutput("contingency_drug") %>% withSpinner(), uiOutput("contingency_download_drug_ui"), width = 12)),
         fluidRow( box(title = "IMPC genotype-phenotype Associations", plotOutput("contingency_impc") %>% withSpinner(), uiOutput("contingency_download_impc_ui"), width = 12))
         ),
               
@@ -1156,6 +1158,165 @@ server <- function(input, output, session) {
     
     corrplot::corrplot(mydata$chisq_impc$residuals %>% as.data.frame() %>% arrange(-up) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_impc$residuals)), ceiling(max(mydata$chisq_impc$residuals))))
   })
+  
+  
+  output$contingency_drug <- renderPlot({
+    req(isolate(mydata$protdf))
+    
+    # drug analysis ----
+    df <- isolate(mydata$protdf) %>% dplyr::select(ID, drug_name, direction) %>% distinct()
+    
+    # Limit analysis to top 50 drugs (by number of annotations)
+    procedure <- df$drug_name %>% unique %>% strsplit(., split = "\\|") %>% unlist %>% table %>% sort(decreasing = TRUE) %>% head(40) %>% names()
+    procedure <- procedure[!is.na(procedure)]
+    
+    contingency <- list()
+    
+    for(i in 1:length(procedure)){
+      
+      df_con <- df %>% mutate(group = grepl(procedure[i], .$drug_name))
+      
+      contingency[[procedure[i]]] <- c(df_con %>% filter(direction == "up" & group == TRUE) %>% nrow(),
+                                       df_con %>% filter(direction == "down" & group == TRUE) %>% nrow(),
+                                       df_con %>% filter(direction == "NS" & group == TRUE) %>% nrow())
+    }
+    
+    contingency[[length(procedure) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
+                                              df_con %>% filter(direction == "down") %>% nrow(),
+                                              df_con %>% filter(direction == "NS") %>% nrow())
+    
+    contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(procedure, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
+    
+    contingency <- contingency[rowSums(contingency) != 0,]
+    
+    chisq <- chisq.test(contingency)
+    
+    mydata$chisq_drug <- chisq
+    
+    corrplot::corrplot(mydata$chisq_drug$residuals %>% as.data.frame() %>% arrange(-up) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_drug$residuals)), ceiling(max(mydata$chisq_drug$residuals))))
+  })
+  
+  
+  output$contingency_download_drug_ui <- renderUI({
+    req(isolate(mydata$chisq_drug))
+    tagList(
+      downloadButton("dl_contingency_drug", label = "Download contingency - Drug-gene interactions Table"),
+      downloadButton("dl_contingency_drug_image", label = "Download contingency - Drug-gene interactions Image")
+    )
+  })
+  
+  output$dl_contingency_drug <- downloadHandler(
+    filename = function() {
+      paste("contingency_drug_", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(cbind(mydata$chisq_drug$observed %>% `colnames<-`(paste(colnames(.), "observed", sep = "_")),
+                      round(mydata$chisq_drug$expected,1) %>% `colnames<-`(paste(colnames(.), "expected", sep = "_")),
+                      round(mydata$chisq_drug$residuals,1) %>% `colnames<-`(paste(colnames(.), "residuals", sep = "_"))), file)
+    }
+  )
+  
+  output$dl_contingency_drug_image <- downloadHandler(
+    filename = function() {
+      paste("contingency_drug_", Sys.Date(), ".svg", sep="")
+    },
+    content = function(file) {
+      svglite::svglite(filename = file, width = 15, height = 8)
+      corrplot::corrplot(mydata$chisq_drug$residuals %>% as.data.frame() %>% arrange(-up) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_drug$residuals)), ceiling(max(mydata$chisq_drug$residuals))))
+      dev.off()
+    }
+  )
+  
+  
+  
+  
+  
+  
+  output$contingency_disgenet <- renderPlot({
+    req(isolate(mydata$protdf))
+    
+    x1 <<- mydata$protdf
+    
+    # disgenet analysis ----
+    df <- isolate(mydata$protdf) %>% dplyr::select(ID, DisGeNet_disease, direction) %>% distinct()
+    
+    # Limit analysis to top 50 drugs (by number of annotations)
+    procedure <- df$DisGeNet_disease %>% unique %>% strsplit(., split = "\\|") %>% unlist %>% table %>% sort(decreasing = TRUE) %>% head(40) %>% names()
+    procedure <- procedure[!is.na(procedure)]
+    
+    contingency <- list()
+    
+    for(i in 1:length(procedure)){
+      
+      df_con <- df %>% mutate(group = grepl(procedure[i], .$DisGeNet_disease))
+      
+      contingency[[procedure[i]]] <- c(df_con %>% filter(direction == "up" & group == TRUE) %>% nrow(),
+                                       df_con %>% filter(direction == "down" & group == TRUE) %>% nrow(),
+                                       df_con %>% filter(direction == "NS" & group == TRUE) %>% nrow())
+    }
+    
+    contingency[[length(procedure) + 1]] <- c(df_con %>% filter(direction == "up") %>% nrow(),
+                                              df_con %>% filter(direction == "down") %>% nrow(),
+                                              df_con %>% filter(direction == "NS") %>% nrow())
+    
+    contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(procedure, "missing")) %>% `colnames<-`(c("up", "down", "NS"))
+    
+    contingency <- contingency[rowSums(contingency) != 0,]
+    
+    chisq <- chisq.test(contingency)
+    
+    mydata$chisq_disgenet <- chisq
+    
+    corrplot::corrplot(mydata$chisq_disgenet$residuals %>% as.data.frame() %>% arrange(-up) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_disgenet$residuals)), ceiling(max(mydata$chisq_disgenet$residuals))))
+  })
+  
+  
+  output$contingency_download_disgenet_ui <- renderUI({
+    req(isolate(mydata$chisq_disgenet))
+    tagList(
+      downloadButton("dl_contingency_disgenet", label = "Download contingency - DisGeNet Table"),
+      downloadButton("dl_contingency_disgenet_image", label = "Download contingency - DisGeNet Image")
+    )
+  })
+  
+  output$dl_contingency_disgenet <- downloadHandler(
+    filename = function() {
+      paste("contingency_disgenet_", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(cbind(mydata$chisq_disgenet$observed %>% `colnames<-`(paste(colnames(.), "observed", sep = "_")),
+                      round(mydata$chisq_disgenet$expected,1) %>% `colnames<-`(paste(colnames(.), "expected", sep = "_")),
+                      round(mydata$chisq_disgenet$residuals,1) %>% `colnames<-`(paste(colnames(.), "residuals", sep = "_"))), file)
+    }
+  )
+  
+  output$dl_contingency_disgenet_image <- downloadHandler(
+    filename = function() {
+      paste("contingency_disgenet_", Sys.Date(), ".svg", sep="")
+    },
+    content = function(file) {
+      svglite::svglite(filename = file, width = 15, height = 8)
+      corrplot::corrplot(mydata$chisq_disgenet$residuals %>% as.data.frame() %>% arrange(-up) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_disgenet$residuals)), ceiling(max(mydata$chisq_disgenet$residuals))))
+      dev.off()
+    }
+  )
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   output$contingency_download_loc_ui <- renderUI({
     req(isolate(mydata$chisq_loc))

@@ -44,6 +44,7 @@ TeaProt is an online Shiny tool that integrates upstream transcription factor en
 ### __Resources__
 TeaProt relies on information from several databases to allow the annotation of user-uploaded data.
 * BRENDA
+* DisGeNet
 * IMPC
 * DGIdb
 * Human cell atlass
