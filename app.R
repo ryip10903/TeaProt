@@ -134,7 +134,7 @@ ui <- dashboardPage( skin = 'black',
     <tr><td style="padding-right: 10px">Number of studies:</td><td>58</td></tr>
     <tr><td style="padding-right: 10px">Number of PTMs:</td><td>18</td></tr>
     <tr><td style="padding-right: 10px">Number of gene-sets:</td><td>141</td></tr>
-    <tr><td style="padding-right: 10px">Filesize:</td><td>1,108 KB</td></tr></table><br>'),
+    <tr><td style="padding-right: 10px">Filesize:</td><td>1,188 KB</td></tr></table><br>'),
                     
                     downloadButton("downloadurptmdb", label = "Download urPTMdb"),
                 ), 
@@ -549,7 +549,7 @@ server <- function(input, output, session) {
     
     df <- read.delim(file = "database/urPTMdb/urptmdb_latest.gmt")
     genes <- df %>% filter(V1 == input$geneset_selected) %>% .[,3:ncol(df)] %>% unlist %>% unname
-    genes <- genes[!is.na(genes)]
+    genes <- genes[!is.na(genes)] %>% sort()
     
     if(stringr::str_extract(input$geneset_selected, "^....") == "GOBP"){
       
