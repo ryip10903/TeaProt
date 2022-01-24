@@ -123,9 +123,11 @@ ui <- dashboardPage( skin = 'black',
                   background-size: cover;", HTML("<center><h1 style='color:White;'>urPTMdb</h1></center>"),
                   HTML("<center><p style='color:White;'>The underrepresented PTM gene-set database.</p></center>")),
               fluidRow(
-                box(status = 'primary', includeMarkdown("README_urptmdb.md")),
                 
-                box(title = "Download urPTMdb", status = 'primary', 
+                       box(status = 'primary', includeMarkdown("README_urptmdb.md")),
+                
+                column(width = 6,
+                box(title = "Download urPTMdb", status = 'primary', width = 12,
 
                     HTML('
     <table cellspacing=5>
@@ -135,7 +137,13 @@ ui <- dashboardPage( skin = 'black',
     <tr><td style="padding-right: 10px">Filesize:</td><td>1,108 KB</td></tr></table><br>'),
                     
                     downloadButton("downloadurptmdb", label = "Download urPTMdb"),
-                ))),
+                ), 
+                box(title = "Browse geneset", status = 'primary', width = 12, 
+                    
+                    selectizeInput(inputId = "geneset_selected", label = "Select a geneset", choices = c(read.delim(file = "database/urPTMdb/urptmdb_latest.gmt")[,1]), multiple = FALSE, selected = NULL),
+                    uiOutput("geneset_info")
+                    
+                    ) )  ) ),
       
       tabItem(tabName = "view",        
               fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
@@ -530,6 +538,42 @@ server <- function(input, output, session) {
       file.copy(paste0("database/urPTMdb/urptmdb_latest.gmt"), file)},
     contentType = NA,
   )
+  
+  
+  
+  
+  output$geneset_info <- renderUI({
+    
+    req(input$geneset_selected)
+    print(input$geneset_selected)
+    
+    df <- read.delim(file = "database/urPTMdb/urptmdb_latest.gmt")
+    genes <- df %>% filter(V1 == input$geneset_selected) %>% .[,3:ncol(df)] %>% unlist %>% unname
+    genes <- genes[!is.na(genes)]
+    
+    if(stringr::str_extract(input$geneset_selected, "^....") == "GOBP"){
+      
+      HTML(paste('
+    <table cellspacing=5>
+    <tr><td style="padding-right: 10px">Source:</td><td>', stringr::str_extract(input$geneset_selected, "^....") ,'</td></tr>
+    <tr><td style="padding-right: 10px">PTM:</td><td>', sub("^.....", "",input$geneset_selected )  ,'</td></tr></table><br>',
+    '<br><h4>Included genes:</h4>',
+    '<p align="justify"><code>', paste(genes, collapse = ", "),'</code></p>', sep = ""))
+      
+    } else {
+      
+      HTML(paste('
+    <table cellspacing=5>
+    <tr><td style="padding-right: 10px">Source:</td><td>', strsplit(input$geneset_selected, "_")[[1]][1],'</td></tr>
+    <tr><td style="padding-right: 10px">Species:</td><td>', strsplit(input$geneset_selected, "_")[[1]][2] ,'</td></tr>
+    <tr><td style="padding-right: 10px">PTM:</td><td>', strsplit(input$geneset_selected, "_")[[1]][3]  ,'</td></tr></table><br>', 
+    '<br><h4>Included genes:</h4>',
+    '<p align="justify"><code>', paste(genes, collapse = ", "),'</code></p>', sep = ""))
+      
+    }
+    
+  })
+  
   
   
   ## visse analysis --------------------------------------------
