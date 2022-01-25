@@ -720,7 +720,7 @@ server <- function(input, output, session) {
     
     if(input$fgseadb %in% c("h", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8")){
       
-      if(input$species == "mouse"){msigdb_mm =  msigdb::msigdb.v7.2.mm.EZID()} else {msigdb_mm =  msigdb::msigdb.v7.2.hs.EZID()}
+      if(input$species == "mouse"){msigdb_mm =  msigdb::getMsigdb(org = 'mm', id = 'EZID', version = '7.2')} else {msigdb_mm =  msigdb::getMsigdb(org = 'hs', id = 'EZID', version = '7.2')}
       
       msigdb_mm = appendKEGG(msigdb_mm)
       msigdb_mm = subsetCollection(msigdb_mm, input$fgseadb)
