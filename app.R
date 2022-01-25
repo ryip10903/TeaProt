@@ -215,7 +215,7 @@ ui <- dashboardPage( skin = 'black',
       tabItem(tabName = "fgseaa", 
               fluidRow(box(title = 'About the Analysis', solidHeader = TRUE, status = 'primary', 
                            HTML("<p align='justify'> This analysis is dependent on the fold-change values in your data. The graph displays the most enriched biological pathways
-                                that are associated with the differential expressions. In the <b> input </b> section, choose the onine database 
+                                that are associated with the differential expressions. In the <b> input </b> section, choose the online database 
                                 that you want the analysis to be based on</p>")),
                        box(title ="input", solidHeader = TRUE, status = 'primary',
                            selectInput('fgseadb', 'Choose gene-sets', choices = list(MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature'), urPTMdb = c(`underrepresented PTMs` = 'urptmdb')), selectize = FALSE),
@@ -820,15 +820,28 @@ server <- function(input, output, session) {
   
   
   output$volcano_single <- plotly::renderPlotly({ 
-    req(mydata$protdf, input$fgsea_select, mydata$fgsea_pathways)
+    req(mydata$protdf, input$fgsea_select, mydata$fgsea_pathways, input$fgseadb)
+    
+    x1 <<- mydata$protdf
+    x2 <<- input$fgsea_select
+    x3 <<- mydata$fgsea_pathways
     
     pathways <- isolate(mydata$fgsea_pathways)
     
-    df <- isolate(mydata$protdf) %>% mutate(target = toupper(ID) %in% toupper(pathways[[input$fgsea_select]])) %>% arrange(target)
+    if(input$fgseadb %in% c("encode", "remap", "literature", "urptmdb")){
+      
+      df <- isolate(mydata$protdf) %>% mutate(target = toupper(ID) %in% toupper(pathways[[input$fgsea_select]])) %>% arrange(target)
+      
+    } else {
+      
+      df <- isolate(mydata$protdf) %>% mutate(target = toupper(EntrezGeneID) %in% toupper(pathways[[input$fgsea_select]])) %>% arrange(target)
+      
+    }
     
-    x2 <<- pathways[[input$fgsea_select]]
-    x3 <<- mydata$protdf
     
+    
+    x4 <<- pathways[[input$fgsea_select]]
+
     p1 <- plotly::ggplotly(ggplot(df,aes(y=-log10(pvalue), x=fold_change, label = ID, col = target)) + geom_point() + theme_bw() + scale_color_manual(values = c("TRUE" = "blue", "FALSE" = "#AAAAEE15")))
     
     return(p1)
@@ -872,7 +885,15 @@ server <- function(input, output, session) {
       
       pathways <- isolate(mydata$fgsea_pathways)
       
-      df <- isolate(mydata$protdf) %>% mutate(target = toupper(ID) %in% toupper(pathways[[input$fgsea_select]])) %>% arrange(target)
+      if(input$fgseadb %in% c("encode", "remap", "literature", "urptmdb")){
+        
+        df <- isolate(mydata$protdf) %>% mutate(target = toupper(ID) %in% toupper(pathways[[input$fgsea_select]])) %>% arrange(target)
+        
+      } else {
+        
+        df <- isolate(mydata$protdf) %>% mutate(target = toupper(EntrezGeneID) %in% toupper(pathways[[input$fgsea_select]])) %>% arrange(target)
+        
+      }
       
       p <- ggplot(df,aes(y=-log10(pvalue), x=fold_change, label = ID, col = target)) + geom_point() + theme_bw() + scale_color_manual(values = c("TRUE" = "blue", "FALSE" = "#AAAAEE15")) + theme(legend.position = "null")
       
@@ -1264,8 +1285,6 @@ server <- function(input, output, session) {
     chisq <- chisq.test(contingency)
     
     mydata$chisq_disgenet <- chisq
-    
-    x_chisq <<- chisq
     
     corrplot::corrplot(mydata$chisq_disgenet$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_disgenet$residuals)), ceiling(max(mydata$chisq_disgenet$residuals))))
   })
