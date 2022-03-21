@@ -197,13 +197,8 @@ ui <- dashboardPage( skin = 'black',
     #Gene pathway 
       tabItem(tabName = "genep",
         fluidRow(box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary', 
-        HTML("<p align='justify'> Analysis are performed to demonstrate the changes in gene expressions
-        in relation to: </p>
-             <ol>
-                            <li> Subcellular localisation</li>
-                            <li> Associated phenotypes</li>
-                          
-                        </ol>"))),
+        HTML("<p align='justify'> Analyses are performed to demonstrate the changes in gene expressions in relation to several annotations including (1) subcellular localization, (2) DisGeNet, (3) Drug-gene interactions and (4) International Mouse Phenotyping Consortium interactions. 
+             A Pearson’s Chi-squared test based on protein annotations (subcellular localization) indicates whether specific annotations are primarily found in upregulated, downregulated or non-significant (NS) proteins. Only localizations with positive residuals in the upregulated group are shown. The data in the figure is colored by Pearson residuals, and sized by the absolute Pearson residuals.</p>"))),
         
         fluidRow( box(title = "Subcellular Localizations", plotOutput("contingency_loc") %>% withSpinner(), uiOutput("contingency_download_loc_ui"), width = 12)),
         fluidRow( box(title = "DisGeNet", plotOutput("contingency_disgenet") %>% withSpinner(), uiOutput("contingency_download_disgenet_ui"), width = 12)),
@@ -252,9 +247,7 @@ server <- function(input, output, session) {
   
   # Create a reactiveValues object called mydata
   mydata <- reactiveValues()
-  forout_reactive <- reactiveValues()
-  CLP <- reactiveValues()
-  
+
   # The following code runs when a file is uploaded
   # We want to load data, and annotate it with our databases here
   # We first load the data based on its extension (.csv, .txt, .xlsx)
@@ -325,6 +318,20 @@ server <- function(input, output, session) {
     
     
     }
+    
+    # Add code to set all reactiveValues back to NULL
+    mydata$protdf <- NULL
+    mydata$array <- NULL
+    mydata$gene_array <- NULL
+    mydata$visse1 <- NULL
+    mydata$fgsea_res <- NULL
+    mydata$fgsea_array <- NULL
+    mydata$fgsea_pathways <- NULL
+    mydata$fgsea_volcano <- NULL
+    mydata$chisq_loc <- NULL
+    mydata$chisq_impc <- NULL
+    mydata$chisq_drug <- NULL
+    mydata$chisq_disgenet <- NULL
     
   })
 
@@ -822,10 +829,6 @@ server <- function(input, output, session) {
   output$volcano_single <- plotly::renderPlotly({ 
     req(mydata$protdf, input$fgsea_select, mydata$fgsea_pathways, input$fgseadb)
     
-    x1 <<- mydata$protdf
-    x2 <<- input$fgsea_select
-    x3 <<- mydata$fgsea_pathways
-    
     pathways <- isolate(mydata$fgsea_pathways)
     
     if(input$fgseadb %in% c("encode", "remap", "literature", "urptmdb")){
@@ -838,10 +841,6 @@ server <- function(input, output, session) {
       
     }
     
-    
-    
-    x4 <<- pathways[[input$fgsea_select]]
-
     p1 <- plotly::ggplotly(ggplot(df,aes(y=-log10(pvalue), x=fold_change, label = ID, col = target)) + geom_point() + theme_bw() + scale_color_manual(values = c("TRUE" = "blue", "FALSE" = "#AAAAEE15")))
     
     return(p1)
@@ -946,18 +945,7 @@ server <- function(input, output, session) {
   })
   
 
-  
-  # Render a histogram of pvalues----------------------------
-  observeEvent(input$tabs, {
-    
-    if (input$tabs %in% c("PVALUE", "dugi", "genep")) {
-      
-      #if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
 
-    } 
-  
-  })
-  
   
 
   
@@ -971,7 +959,7 @@ server <- function(input, output, session) {
     })
   
   output$volcano_download_ui <- renderUI({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     downloadButton("dl_volcano_image", label = "Download volcano Image")
   })
   
@@ -1006,7 +994,7 @@ server <- function(input, output, session) {
     })
   
   output$hist_download_ui <- renderUI({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
       downloadButton("dl_hist_image", label = "Download histogram Image")
   })
   
@@ -1031,7 +1019,7 @@ server <- function(input, output, session) {
   
   #annotation dgi
   output$bargraph_drug <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     df <- isolate(mydata$protdf) %>% tidyr::separate_rows(drug_name, sep = "\\|") %>% filter(drug_name != "") %>% 
       filter(drug_name != "") %>% group_by(drug_name) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
@@ -1046,7 +1034,7 @@ server <- function(input, output, session) {
   
   #annotation loc
   output$bargraph_loc <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     df <- isolate(mydata$protdf) %>% tidyr::separate_rows(CP_loc) %>% filter(CP_loc != "") %>% 
       filter(CP_loc != "") %>% group_by(CP_loc) %>% summarise (frequency =n())
@@ -1061,7 +1049,7 @@ server <- function(input, output, session) {
   
   #annotation impc
   output$bargraph_impc <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     df <- isolate(mydata$protdf) %>% tidyr::separate_rows(impc_significant_procedure_name, sep = "\\|") %>% filter(impc_significant_procedure_name != "") %>% 
       filter(impc_significant_procedure_name != "") %>% group_by(impc_significant_procedure_name) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
@@ -1076,7 +1064,7 @@ server <- function(input, output, session) {
   
   #annotation disgenet
   output$bargraph_disgenet <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     df <- isolate(mydata$protdf) %>% tidyr::separate_rows(DisGeNet_disease, sep = "\\|") %>% filter(DisGeNet_disease != "") %>% 
       filter(DisGeNet_disease != "") %>% group_by(DisGeNet_disease) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
@@ -1091,7 +1079,7 @@ server <- function(input, output, session) {
   
   #annotation disgenet
   output$bargraph_brenda <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     df <- isolate(mydata$protdf) %>% tidyr::separate_rows(reaction, sep = "\\|") %>% filter(reaction != "") %>% 
       filter(reaction != "") %>% group_by(reaction) %>% summarise (frequency =n()) %>% slice_max(frequency, n = 40, with_ties = FALSE)
@@ -1111,7 +1099,7 @@ server <- function(input, output, session) {
 
   # Contingency
   output$contingency_loc <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     # Localization analysis
     df <- isolate(mydata$protdf) %>% dplyr::select(ID, CP_loc, direction) %>% distinct()
@@ -1146,7 +1134,7 @@ server <- function(input, output, session) {
   })
   
   output$contingency_impc <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     # IMPC analysis ----
     df <- isolate(mydata$protdf) %>% dplyr::select(ID, impc_significant_procedure_name, direction) %>% distinct()
@@ -1182,7 +1170,7 @@ server <- function(input, output, session) {
   
   
   output$contingency_drug <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     # drug analysis ----
     df <- isolate(mydata$protdf) %>% dplyr::select(ID, drug_name, direction) %>% distinct()
@@ -1219,7 +1207,7 @@ server <- function(input, output, session) {
   
   
   output$contingency_download_drug_ui <- renderUI({
-    req(isolate(mydata$chisq_drug))
+    req((mydata$chisq_drug))
     tagList(
       downloadButton("dl_contingency_drug", label = "Download contingency - Drug-gene interactions Table"),
       downloadButton("dl_contingency_drug_image", label = "Download contingency - Drug-gene interactions Image")
@@ -1254,7 +1242,7 @@ server <- function(input, output, session) {
   
   
   output$contingency_disgenet <- renderPlot({
-    req(isolate(mydata$protdf))
+    req((mydata$protdf))
     
     # disgenet analysis ----
     df <- isolate(mydata$protdf) %>% dplyr::select(ID, DisGeNet_disease, direction) %>% distinct()
@@ -1291,7 +1279,7 @@ server <- function(input, output, session) {
   
   
   output$contingency_download_disgenet_ui <- renderUI({
-    req(isolate(mydata$chisq_disgenet))
+    req((mydata$chisq_disgenet))
     tagList(
       downloadButton("dl_contingency_disgenet", label = "Download contingency - DisGeNet Table"),
       downloadButton("dl_contingency_disgenet_image", label = "Download contingency - DisGeNet Image")
@@ -1338,7 +1326,7 @@ server <- function(input, output, session) {
   
   
   output$contingency_download_loc_ui <- renderUI({
-    req(isolate(mydata$chisq_loc))
+    req((mydata$chisq_loc))
     tagList(
       downloadButton("dl_contingency_loc", label = "Download contingency - Localization Table"),
       downloadButton("dl_contingency_loc_image", label = "Download contingency - Localization Image")
@@ -1371,7 +1359,7 @@ server <- function(input, output, session) {
   
   
   output$contingency_download_impc_ui <- renderUI({
-    req(isolate(mydata$chisq_loc))
+    req((mydata$chisq_loc))
     tagList(
       downloadButton("dl_contingency_impc", label = "Download contingency - IMPC Table"),
       downloadButton("dl_contingency_impc_image", label = "Download contingency - IMPC Image")
