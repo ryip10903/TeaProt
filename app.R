@@ -16,10 +16,12 @@ library(vissE)
 library(igraph)
 library(ggpubr)
 library(patchwork)
+library(networkD3)
 #library(pubgr)
 #library(ggpubr)
 #library(org.Hs.eg.db)
 #library(org.Mm.eg.db)
+
 
 
 # Define UI for data upload app ----
@@ -143,7 +145,12 @@ ui <- dashboardPage( skin = 'black',
                     selectizeInput(inputId = "geneset_selected", label = "Select a geneset", choices = c(read.delim(file = "database/urPTMdb/urptmdb_latest.gmt")[,1]), multiple = FALSE, selected = NULL),
                     uiOutput("geneset_info")
                     
-                    ) )  ) ),
+                    ),
+                box(title = "Geneset jaccard network", status = 'primary', width = 12, 
+                    
+                    uiOutput("network_d3"), HTML("Gene-set Jaccard index network of urPTMdb. The Jaccard index indicates the similarity between two gene-sets, where the connected nodes have an index > 0.15.")
+                    
+                ) )  ) ),
       
       tabItem(tabName = "view",        
               fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
@@ -260,6 +267,14 @@ server <- function(input, output, session) {
   
   observe({
     print(input$file)
+  })
+  
+  output$network_d3 <- renderUI({
+    
+    gph_d3 <- readRDS(file = "data/urptmdb_network.rds")
+    
+    networkD3::forceNetwork(Links = gph_d3$links, Nodes = gph_d3$nodes, Source = 'source', Target = 'target', NodeID = 'name', Group = 'group', zoom = TRUE, charge = -10, opacity = 0.9)
+    
   })
   
   observeEvent(input$file, {
