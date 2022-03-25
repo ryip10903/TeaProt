@@ -788,12 +788,14 @@ server <- function(input, output, session) {
       
       pathway <- pathway %>% tidyr::unite(., col = "genes", -V1, na.rm = TRUE)
       pathway$genes <- sub("\\_\\_.*","", pathway$genes)
+      pathway <- pathway %>% filter(genes != "")
+      
       
       pathwaylist <- list()
       
       for(i in 1:nrow(pathway)){
         
-        pathwaylist[pathway$V1[i]] <- strsplit(pathway$genes[i], split = "_")
+        pathwaylist[pathway$V1[i]] <- strsplit(toupper(pathway$genes[i]), split = "_")
         
       }
       
