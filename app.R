@@ -6,7 +6,6 @@ library(ggplot2)
 library(shinyWidgets)
 library(markdown)
 library(clusterProfiler)
-#library(ReactomePA)
 library(dplyr)
 library(DT)
 library(shinycssloaders)
@@ -599,6 +598,7 @@ server <- function(input, output, session) {
     print(input$geneset_selected)
     
     df <- read.delim(file = "database/urPTMdb/urptmdb_latest.gmt")
+    description <- df %>% filter(V1 == input$geneset_selected) %>% .[,2] %>% unlist %>% unname
     genes <- df %>% filter(V1 == input$geneset_selected) %>% .[,3:ncol(df)] %>% unlist %>% unname
     genes <- genes[!is.na(genes)] %>% sort()
     
@@ -607,7 +607,8 @@ server <- function(input, output, session) {
       HTML(paste('
     <table cellspacing=5>
     <tr><td style="padding-right: 10px">Source:</td><td>', stringr::str_extract(input$geneset_selected, "^....") ,'</td></tr>
-    <tr><td style="padding-right: 10px">PTM:</td><td>', sub("^.....", "",input$geneset_selected )  ,'</td></tr></table><br>',
+    <tr><td style="padding-right: 10px">PTM:</td><td>', sub("^.....", "",input$geneset_selected )  ,'</td></tr>
+    <tr><td style="padding-right: 10px">Description:</td><td>', description,'</td></tr></table><br>',
     '<br><h4>Included genes:</h4>',
     '<p align="justify"><code>', paste(genes, collapse = ", "),'</code></p>', sep = ""))
       
@@ -617,7 +618,8 @@ server <- function(input, output, session) {
     <table cellspacing=5>
     <tr><td style="padding-right: 10px">Source:</td><td>', strsplit(input$geneset_selected, "_")[[1]][1],'</td></tr>
     <tr><td style="padding-right: 10px">Species:</td><td>', strsplit(input$geneset_selected, "_")[[1]][2] ,'</td></tr>
-    <tr><td style="padding-right: 10px">PTM:</td><td>', strsplit(input$geneset_selected, "_")[[1]][3]  ,'</td></tr></table><br>', 
+    <tr><td style="padding-right: 10px">PTM:</td><td>', strsplit(input$geneset_selected, "_")[[1]][3]  ,'</td></tr>
+    <tr><td style="padding-right: 10px">Description:</td><td>', description,'</td></tr></table><br>',
     '<br><h4>Included genes:</h4>',
     '<p align="justify"><code>', paste(genes, collapse = ", "),'</code></p>', sep = ""))
       
