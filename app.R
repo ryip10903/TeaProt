@@ -191,7 +191,7 @@ ui <- dashboardPage( skin = 'black',
                         </ol>  "))),
         fluidRow(
           box( title = 'Distributions', plotOutput("histogram_pvalue") %>% withSpinner(), uiOutput("hist_download_ui")),
-          box( title = 'Volcano plot', plotly::plotlyOutput("density_pvalue") %>% withSpinner(), uiOutput("volcano_download_ui")  ))
+          box( title = 'Volcano plot', plotly::plotlyOutput("volcano_interactive") %>% withSpinner(), uiOutput("volcano_download_ui")  ))
         ),
       
       ##Drug interaction
@@ -995,10 +995,10 @@ server <- function(input, output, session) {
 
   
   #P value UI-1
-  output$density_pvalue <- plotly::renderPlotly({ 
-    req(mydata$protdf)
+  output$volcano_interactive <- plotly::renderPlotly({ 
+    req(mydata$protdf, input$param_pval, input$param_fc)
     
-    p1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + theme_bw())
+    p1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID, col = ((pvalue < isolate(input$param_pval)) & (abs(fold_change) > isolate(input$param_fc)) ))) + geom_point(alpha = 0.3) + scale_colour_manual(values = c("TRUE" = "red", "FALSE" = "skyblue")) + theme_bw() + theme(legend.position = "none"))
     
     return(p1)
     })
@@ -1014,7 +1014,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       
-      p <- ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID)) + geom_point(col = "blue", alpha = 0.2) + theme_bw()
+      p <- ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID, col = ((pvalue < isolate(input$param_pval)) & (abs(fold_change) > isolate(input$param_fc)) ))) + geom_point(alpha = 0.3) + scale_colour_manual(values = c("TRUE" = "red", "FALSE" = "skyblue")) + theme_bw() + theme(legend.position = "none")
       
       svglite::svglite(filename = file, width = 2.5, height = 2.5)
       plot(p)
