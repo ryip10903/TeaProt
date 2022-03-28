@@ -224,19 +224,28 @@ ui <- dashboardPage( skin = 'black',
       #Fgsea
       tabItem(tabName = "fgseaa", 
               fluidRow(box(title = 'About the Analysis', solidHeader = TRUE, status = 'primary', 
-                           HTML("<p align='justify'> This analysis is dependent on the fold-change values in your data. The graph displays the most enriched biological pathways
-                                that are associated with the differential expressions. In the <b> input </b> section, choose the online database 
-                                that you want the analysis to be based on</p>")),
+                           HTML("<p align='justify'>
+                           This analysis is dependent on the fold-change values in your data. 
+                           The graph displays the most enriched biological pathways that are associated with the differential expressions. 
+                           In the input section, choose the geneset collection that you want the analysis to be based on. After running the analysis, the results will be displayed in the following tabs:
+                                </p>
+                                <ul>
+                                <li><b>panel: </b>Image showing the top x positively and negatively enriched pathways</li>
+                                <li><b>table: </b>Table showing all fgsea results</li>
+                                <li><b>volcano: </b>Volcano plot showing the p-value and NES of each tested geneset</li>
+                                <li><b>single: </b>Tab showing fgsea enrichment and coloured volcano plot for a single geneset of interest</li>
+                                </ul>")),
                        box(title ="input", solidHeader = TRUE, status = 'primary',
                            selectInput('fgseadb', 'Choose gene-sets', choices = list(MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature'), urPTMdb = c(`underrepresented PTMs` = 'urptmdb')), selectize = FALSE),
                            actionButton('buttonfg', 'Start Analysis'))),
               
         
-        fluidRow(tabBox(title = "FGSEA", id = "tabset1", width = 6, 
-                        tabPanel("panel", height = "60vh", selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)), plotOutput("fgseaplot") %>% withSpinner()), 
-                        tabPanel("single", height = "60vh", uiOutput("fgsea_select_ui"), fluidRow(column(5,plotOutput("fgseaplot_single") %>% withSpinner()), column(7,plotly::plotlyOutput("volcano_single") %>% withSpinner())), uiOutput("volcano_single_download_ui")), 
-                        tabPanel("volcano", height = "60vh", plotly::plotlyOutput("fgseaplot_volcano") %>% withSpinner())),
-                 box(title = "FGSEA - Table", width = 6, DT::dataTableOutput("fgseatable") ))),
+        fluidRow(tabBox(title = "FGSEA", id = "tabset1", width = 12, 
+                        tabPanel("panel", height = "70vh", selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)), plotOutput("fgseaplot") %>% withSpinner()), 
+                        tabPanel("table", height = "70vh", DT::dataTableOutput("fgseatable")), 
+                        tabPanel("volcano", height = "70vh", plotly::plotlyOutput("fgseaplot_volcano") %>% withSpinner()),
+                        tabPanel("single", height = "70vh", uiOutput("fgsea_select_ui"), fluidRow(column(5,plotOutput("fgseaplot_single") %>% withSpinner()), column(7,plotly::plotlyOutput("volcano_single") %>% withSpinner())), uiOutput("volcano_single_download_ui")), 
+      ))),
       
 
       
@@ -351,6 +360,7 @@ server <- function(input, output, session) {
     mydata$fgsea_array <- NULL
     mydata$fgsea_pathways <- NULL
     mydata$fgsea_volcano <- NULL
+    mydata$fgsea_descriptiontable <- NULL
     mydata$chisq_loc <- NULL
     mydata$chisq_impc <- NULL
     mydata$chisq_drug <- NULL
@@ -776,17 +786,27 @@ server <- function(input, output, session) {
       genedb <- geneIds(msigdb_mm)
       msig_db_gsea <- data.frame(gs_name = rep(names(genedb), lengths(genedb)), gene_symbol = unlist(genedb, use.names=TRUE))
       
+      descriptiontable <- list()
+      
+      for(i in 1:length(msigdb_mm)){
+      
+        descriptiontable[i] <- description(msigdb_mm[[i]])
+          
+      }
+      
+      descriptiontable <- data.frame(pathway = names(msigdb_mm), description = unlist(descriptiontable))
+      
       pathways = genedb
       
       }
     
     if(input$fgseadb %in% c("encode", "remap", "literature", "urptmdb")){
       
-      if(input$fgseadb == "encode"){pathway <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)}
-      if(input$fgseadb == "remap"){pathway <- read.delim(file = "database/CHEA3/ReMap_ChIP-seq.gmt", header = FALSE)}
-      if(input$fgseadb == "literature"){pathway <- read.delim(file = "database/CHEA3/Literature_ChIP-seq.gmt", header = FALSE)}
-      if(input$fgseadb == "urptmdb" & input$species == "mouse"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_latest_mm.gmt", header = TRUE) %>% dplyr::select(-V2)}
-      if(input$fgseadb == "urptmdb" & input$species != "mouse"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_latest_hs.gmt", header = TRUE) %>% dplyr::select(-V2)}
+      if(input$fgseadb == "encode"){pathway <- read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE); descriptiontable <- data.frame(pathway = read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)[,1], description = read.delim(file = "database/CHEA3/ENCODE_ChIP-seq.gmt", header = FALSE)[,1])}
+      if(input$fgseadb == "remap"){pathway <- read.delim(file = "database/CHEA3/ReMap_ChIP-seq.gmt", header = FALSE); descriptiontable <- data.frame(pathway = read.delim(file = "database/CHEA3/ReMap_ChIP-seq.gmt", header = FALSE)[,1], description = read.delim(file = "database/CHEA3/ReMap_ChIP-seq.gmt", header = FALSE)[,1])}
+      if(input$fgseadb == "literature"){pathway <- read.delim(file = "database/CHEA3/Literature_ChIP-seq.gmt", header = FALSE); descriptiontable <- data.frame(pathway = read.delim(file = "database/CHEA3/Literature_ChIP-seq.gmt", header = FALSE)[,1], description = read.delim(file = "database/CHEA3/Literature_ChIP-seq.gmt", header = FALSE)[,1])}
+      if(input$fgseadb == "urptmdb" & input$species == "mouse"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_latest_mm.gmt", header = TRUE) %>% dplyr::select(-V2); descriptiontable <- read.delim(file = "database/urPTMdb/urptmdb_latest_mm.gmt", header = TRUE) %>% dplyr::select(V1, V2) %>% `colnames<-`(c("pathway", "description"))}
+      if(input$fgseadb == "urptmdb" & input$species != "mouse"){pathway <- read.delim(file = "database/urPTMdb/urptmdb_latest_hs.gmt", header = TRUE) %>% dplyr::select(-V2); descriptiontable <- read.delim(file = "database/urPTMdb/urptmdb_latest_hs.gmt", header = TRUE) %>% dplyr::select(V1, V2) %>% `colnames<-`(c("pathway", "description"))}
       
       pathway <- pathway %>% tidyr::unite(., col = "genes", -V1, na.rm = TRUE)
       pathway$genes <- sub("\\_\\_.*","", pathway$genes)
@@ -815,6 +835,7 @@ server <- function(input, output, session) {
     mydata$fgsea_res <- fgseaRes
     mydata$fgsea_array <- array
     mydata$fgsea_pathways <- pathways
+    mydata$fgsea_descriptiontable <- descriptiontable
     
     mydata$fgsea_volcano <- plotly::ggplotly(ggplot(fgseaRes,aes(y=-log10(pval), x=NES, label = pathway)) + geom_point(col = "blue", alpha = 0.2) + theme_bw())
     
@@ -952,15 +973,15 @@ server <- function(input, output, session) {
   
   output$fgseatable <- DT::renderDataTable(server = FALSE, {
     
-    req(mydata$fgsea_res)
+    req(mydata$fgsea_res, mydata$fgsea_descriptiontable)
     
-    df <- mydata$fgsea_res %>% arrange(-NES)
+    df <- mydata$fgsea_res %>% arrange(-padj) %>% left_join(., mydata$fgsea_descriptiontable) %>% dplyr::select(pathway, description, everything())
     
-    df[,2] <- formatC(as.data.frame(df)[,2], digits = 2, format = 'e')
     df[,3] <- formatC(as.data.frame(df)[,3], digits = 2, format = 'e')
-    df[,4] <- formatC(as.data.frame(df)[,4], digits = 3) 
+    df[,4] <- formatC(as.data.frame(df)[,4], digits = 2, format = 'e')
     df[,5] <- formatC(as.data.frame(df)[,5], digits = 3) 
-    df[,6] <- formatC(as.data.frame(df)[,6], digits = 3) 
+    df[,7] <- formatC(as.data.frame(df)[,6], digits = 3) 
+    df[,7] <- formatC(as.data.frame(df)[,7], digits = 3) 
 
     return(DT::datatable(df, extensions = 'Buttons', rownames = FALSE, options = list(dom = 'tpB', fixedColumns = TRUE, autoWidth = FALSE, pagingType = "numbers", scrollX = T, buttons = list(
       list(extend = 'csv', filename = paste("fgsea_", input$fgseadb, "_", Sys.Date(), sep="")),
