@@ -23,45 +23,30 @@ library(networkD3)
 
 
 
-# Define UI for data upload app ----
-ui <- dashboardPage( skin = 'black',
-                     
-    # App title and header ----
-    title = "TeaProt",
-  
-    dashboardHeader(title = tags$a(href='https://github.com/ryip10903/Protein_annotation_app', target = '_blank',
-                                      tags$img(src=paste0("teaprot.svg"), height = "70%", width = "auto", align = "middle"))),
+# Define UI for app ----
+ui <- dashboardPage(skin = 'black', title = "TeaProt", 
+                    
+  # Dashboardheader              
+  dashboardHeader(title = tags$a(href='https://github.com/ryip10903/Protein_annotation_app', target = '_blank', tags$img(src=paste0("teaprot.svg"), height = "70%", width = "auto", align = "middle"))),
     
-  
-  # Sidebar panel for inputs ----
+  # Sidebar panel to navigate tabs ----
   dashboardSidebar(
     sidebarMenu(id = "tabs",
-     
-      
-    #sidebar Items
-      menuItem("START", tabName = "start", icon = icon("bookmark")),
-      menuItem("urPTMdb", tabName = "urptmdb", icon = icon("database")),
-      
-      menuItem("Analysis", tabName = "ANALYSIS", icon = icon("bookmark"),
-              menuItem("View Data", tabName = "view", icon = icon("bookmark")),
-              menuSubItem("p-value & fold change", tabName = "PVALUE", icon= icon("info-circle")),
-              menuSubItem("annotations", tabName = "dugi", icon= icon("chart-bar")),
-              menuSubItem("enrichment", tabName = "genep",icon= icon("ellipsis-v")),
-              menuSubItem("Fgsea analysis", tabName = "fgseaa")
-              #menuSubItem('vissE analysis', tabName = 'vvss')
-              )
-
-
+                menuItem("START", tabName = "start", icon = icon("bookmark")),
+                menuItem("urPTMdb", tabName = "urptmdb", icon = icon("database")),
+                menuItem("Analysis", tabName = "ANALYSIS", icon = icon("bookmark"),
+                         menuSubItem("View Data", tabName = "view", icon = icon("bookmark")),
+                         menuSubItem("p-value & fold change", tabName = "PVALUE", icon= icon("info-circle")),
+                         menuSubItem("annotations", tabName = "dugi", icon= icon("chart-bar")),
+                         menuSubItem("enrichment", tabName = "genep",icon= icon("ellipsis-v")),
+                         menuSubItem("Fgsea analysis", tabName = "fgseaa"))
+                )
     ),
-    sidebarMenuOutput("menu")
-  ),
   
   # Main panel for displaying outputs ----
   dashboardBody(
     
-    # The global options for the UI and meta tags are defined here
-    # This includes the custom.css stylesheet into the body.
-    # The meta tags affect the search enginge results when looking for CoffeeProt
+    # The global options for the UI and meta tags are defined here, this includes the custom.css stylesheet into the body.
     tags$head(tags$meta(name = "description", content = "TeaProt is an easy to use and interactive tool to analyze proteomics data."),
               tags$meta(name = "keywords", content = "protein, proteomics, transcriptomics, analysis, visualization")),
 
@@ -70,62 +55,61 @@ ui <- dashboardPage( skin = 'black',
     tabItems(
       
       tabItem(tabName = "start",
-              div(class = "jumbotron", style="background-image: url(dna-banner.svg); 
-              background-color:white;
-                  background-size: cover;", HTML("<center><h1>Welcome to TeaProt!</h1></center>"),
+              div(class = "jumbotron", style="background-image: url(dna-banner.svg); background-color:white; background-size: cover;", 
+                  HTML("<center><h1>Welcome to TeaProt!</h1></center>"), 
                   HTML("<center><p>The online proteomics/transcriptomics analysis pipeline featuring novel underrepresented PTM genesets.</p></center>")),
+              
               fluidRow(
+                
+                # README box
                 box(status = 'primary', includeMarkdown("README.md")),
                 
+                # Demo data box
                 box(title = "Demo data", status = 'primary', 
-                    # Demo data
-                    selectizeInput("demoset", label = NULL, choices = list("" ,"Mouse tongue data" = "Parker"), 
-                                                                      selected = "Parker", options = list(placeholder = 'Select dataset')) , htmlOutput('demoref'),uiOutput("dl_demoset_ui"),
-                ), 
+                    
+                    selectizeInput("demoset", label = NULL, choices = list("" ,"Mouse tongue data" = "Parker"), selected = "Parker", options = list(placeholder = 'Select dataset')), 
+                    htmlOutput('demoref'), 
+                    uiOutput("dl_demoset_ui")), 
+                
+                # Inputs box
                 box(title = "Inputs", status = 'primary', 
                     
-
-                    
-                    #a(href="www/tongue_de_mouse.xlsx", "Download data", download=NA, target="_blank"),
                     # Input: Select a file ----
                     fileInput("file", "Choose CSV File", multiple = FALSE, accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv", '.xls', '.xlsx')),
                     
                     # Input: Select ID ----
-                    selectizeInput(inputId = "col_id", label = "Choose ID column", choices = c(NULL), multiple = TRUE, selected = NULL,
-                      options = list(placeholder = "This is a placeholder", maxItems = 1)), 
+                    selectizeInput(inputId = "col_id", label = "Choose ID column", choices = c(NULL), multiple = TRUE, selected = NULL, options = list(placeholder = "This is a placeholder", maxItems = 1)), 
                     
                     # Input: Select pval ----
-                    selectizeInput(inputId = "col_pval", label = "Choose p-value column", choices = c(NULL), multiple = TRUE, selected = NULL,
-                                   options = list(placeholder = "This is a placeholder", maxItems = 1)),  
+                    selectizeInput(inputId = "col_pval", label = "Choose p-value column", choices = c(NULL), multiple = TRUE, selected = NULL, options = list(placeholder = "This is a placeholder", maxItems = 1)),  
                     
                     # Input: Select FC ----
-                    selectizeInput(inputId = "col_fc", label = "Choose fold-change column", choices = c(NULL), multiple = TRUE, selected = NULL,
-                                   options = list(placeholder = "This is a placeholder", maxItems = 1)), 
-                    
-
+                    selectizeInput(inputId = "col_fc", label = "Choose fold-change column", choices = c(NULL), multiple = TRUE, selected = NULL, options = list(placeholder = "This is a placeholder", maxItems = 1)), 
                     
                     # Input: Select a species ----
-                    selectInput("species", "Choose Species",
-                                c("human", "mouse")),
+                    selectInput("species", "Choose Species", c("human", "mouse")),
                     
                     # Input: Select significance cutoff ----
                     sliderTextInput(inputId = "param_pval", label = "Choose a p-value cutoff:", choices = c(1, 0.1, 0.05, 0.01, 0.001), selected = 0.05, grid = TRUE),
+                    
+                    # Input: Select significance cutoff ----
                     sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), selected = 0, grid = TRUE),
                     
+                    # Display selected input parameters
                     verbatimTextOutput ("param_text"),
                     
                     # Start analysis button ----
-                    actionButton("button", 'Start!', style='font-weight:600' )
+                    actionButton("button", 'Start!', style='font-weight:600')
+                    
                     ))),
       
-      tabItem(tabName = "urptmdb",
-              div(class = "jumbotron", style="background-image: url(ptm-banner.svg); 
-              background-color:white;
-                  background-size: cover;", HTML("<center><h1 style='color:White;'>urPTMdb</h1></center>"),
+      tabItem(tabName = "urptmdb", 
+              
+              div(class = "jumbotron", style="background-image: url(ptm-banner.svg); background-color:white; background-size: cover;", 
+                  HTML("<center><h1 style='color:White;'>urPTMdb</h1></center>"), 
                   HTML("<center><p style='color:White;'>The underrepresented PTM gene-set database.</p></center>")),
-              fluidRow(
-                
-                       box(status = 'primary', includeMarkdown("README_urptmdb.md")),
+              
+              fluidRow(box(status = 'primary', includeMarkdown("README_urptmdb.md")),
                 
                 column(width = 6,
                 box(title = "Download urPTMdb", status = 'primary', width = 12,
@@ -146,19 +130,16 @@ ui <- dashboardPage( skin = 'black',
                     
                     downloadButton("downloadurptmdb", label = "Download urPTMdb - Original"),
                     downloadButton("downloadurptmdb_hs", label = "Download urPTMdb - Human"),
-                    downloadButton("downloadurptmdb_mm", label = "Download urPTMdb - Mouse"),
-                ), 
+                    downloadButton("downloadurptmdb_mm", label = "Download urPTMdb - Mouse")), 
+                
                 box(title = "Browse geneset", status = 'primary', width = 12, 
-                    
                     selectizeInput(inputId = "geneset_selected", label = "Select a geneset", choices = c(read.delim(file = "database/urPTMdb/urptmdb_latest.gmt")[,1]), multiple = FALSE, selected = NULL),
-                    uiOutput("geneset_info")
-                    
-                    ),
+                    uiOutput("geneset_info")),
+                
                 box(title = "Geneset jaccard network", status = 'primary', width = 12, 
-                    
-                    uiOutput("network_d3"), HTML("Gene-set Jaccard index network of urPTMdb. The Jaccard index indicates the similarity between two gene-sets, where the connected nodes have an index > 0.15.")
-                    
-                ) )  ) ),
+                    uiOutput("network_d3"), HTML("Gene-set Jaccard index network of urPTMdb. The Jaccard index indicates the similarity between two gene-sets, where the connected nodes have an index > 0.15.")) 
+                
+                )  ) ),
       
       tabItem(tabName = "view",        
               fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
@@ -191,8 +172,7 @@ ui <- dashboardPage( skin = 'black',
                         </ol>  "))),
         fluidRow(
           box( title = 'Distributions', plotOutput("histogram_pvalue") %>% withSpinner(), uiOutput("hist_download_ui")),
-          box( title = 'Volcano plot', plotly::plotlyOutput("volcano_interactive") %>% withSpinner(), uiOutput("volcano_download_ui")  ))
-        ),
+          box( title = 'Volcano plot', plotly::plotlyOutput("volcano_interactive") %>% withSpinner(), uiOutput("volcano_download_ui")  ))),
       
       ##Drug interaction
       tabItem(tabName = "dugi", 
@@ -223,6 +203,8 @@ ui <- dashboardPage( skin = 'black',
               
       #Fgsea
       tabItem(tabName = "fgseaa", 
+              
+              # Row containing explanation and inputs
               fluidRow(box(title = 'About the Analysis', solidHeader = TRUE, status = 'primary', 
                            HTML("<p align='justify'>
                            This analysis is dependent on the fold-change values in your data. 
@@ -239,31 +221,19 @@ ui <- dashboardPage( skin = 'black',
                            selectInput('fgseadb', 'Choose gene-sets', choices = list(MSigDB = c(`h: hallmark gene sets` = 'h', `c1: positional gene sets` = 'c1', `c2: curated gene sets` = 'c2', `c3: regulatory target gene sets` = 'c3', `c4: computational gene sets` = 'c4',`c5: ontology gene sets` = 'c5',`c6: oncogenic signature gene sets` = 'c6',`c7: immunologic signature gene sets` = 'c7',`c8: cell type signature gene sets` = 'c8'), Transcription = c(`CHEA3 - ENCODE` = 'encode', `CHEA3 - REMAP` = 'remap', `CHEA3 - Literature` = 'literature'), urPTMdb = c(`underrepresented PTMs` = 'urptmdb')), selectize = FALSE),
                            actionButton('buttonfg', 'Start Analysis'))),
               
-        
-        fluidRow(tabBox(title = "FGSEA", id = "tabset1", width = 12, 
+              # Row containing results
+              fluidRow(tabBox(title = "FGSEA", id = "tabset1", width = 12, 
                         tabPanel("panel", height = "70vh", selectInput("fgnumber", "Choose Number of Pathways to display", c(10, 20, 30)), plotOutput("fgseaplot") %>% withSpinner()), 
                         tabPanel("table", height = "70vh", DT::dataTableOutput("fgseatable")), 
                         tabPanel("volcano", height = "70vh", plotly::plotlyOutput("fgseaplot_volcano") %>% withSpinner()),
-                        tabPanel("single", height = "70vh", uiOutput("fgsea_select_ui"), fluidRow(column(5,plotOutput("fgseaplot_single") %>% withSpinner()), column(7,plotly::plotlyOutput("volcano_single") %>% withSpinner())), uiOutput("volcano_single_download_ui")), 
-      ))),
+                        tabPanel("single", height = "70vh", uiOutput("fgsea_select_ui"), fluidRow(column(5,plotOutput("fgseaplot_single") %>% withSpinner()), column(7,plotly::plotlyOutput("volcano_single") %>% withSpinner())), uiOutput("volcano_single_download_ui"))
+      )))
       
+    )
 
-      
-    #Visse analysis
-      tabItem(
-        actionButton('buttonv', 'Start Analysis'),
-        selectInput('DBselect', 'Options', c('c1','c2','c3','c4','c5','c6','c7', 'c8', 'h'), 
-                    selected = c('h', 'c2', 'c5'),
-                    multiple=TRUE, selectize=TRUE),
-        tabName = 'vvss', h2('Visse Analysis'),
-          fluidRow(column(12, box(title = 'Visse Plot', plotOutput('visseinput')
-                                 %>% withSpinner(), width = 12)))
-      )
-      
-    ),
+  )
 
-    
-  ))
+)
 
 # Define server logic to read selected file ----
 server <- function(input, output, session) {
@@ -638,130 +608,6 @@ server <- function(input, output, session) {
   })
   
   
-  
-  ## visse analysis --------------------------------------------
-  
-  observeEvent(input$buttonv, {
-    
-    if(!exists('mydata$protdf')){sendSweetAlert(session = session, title = "Error", text = "Please upload your data first", type = "error")}
-    
-    req(mydata$protdf)
-    sendSweetAlert(session = session, title = "Notification",
-                   btn_labels = NA,
-                   text = "Analysis in Progress, this will take approximately 10 minutes....", type = "warning",
-                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
-    
-    
-    
-      
-    # Create input data 
-    d <- mydata$protdf[,c(1,3)] %>% filter(!is.nan(ID) & !is.na(fold_change)) %>% dplyr::rename(gene = 1, fc = 2) %>% group_by(gene) %>% summarize(fc = mean(fc))
-    
-    geneList <- d[,2] %>% unlist
-    names(geneList) <- as.character(d[,1] %>% unlist %>% stringr::str_to_title())
-    geneList <- base::sort(geneList, decreasing = TRUE)
-    
-    
-    #load the MSigDB from the msigdb package
-    msigdb_mm =  msigdb::msigdb.v7.2.mm.SYM()
-    #append KEGG gene-sets
-    msigdb_mm = appendKEGG(msigdb_mm)
-    #dplyr::select h, c2, and c5 collections (recommended)
-    msigdb_mm = subsetCollection(msigdb_mm, input$DBselect)
-    
-    # Create an input gene set for the GSEA function
-    genedb <- geneIds(msigdb_mm)
-    msig_db_gsea <- data.frame(gs_name = rep(names(genedb), lengths(genedb)), gene_symbol = unlist(genedb, use.names=TRUE))
-    
-    # Run GSEA
-    set.seed(36)
-    
-    em <- GSEA(geneList, TERM2GENE = msig_db_gsea, pvalueCutoff = 0.05)
-    geneset_res = em@result$Description
-    
-    if(nrow(em@result) < 1) {
-      sendSweetAlert(session = session, title = "Notification",
-        text = "Error,No enrichment found with GSEA", type = "error",
-       closeOnClickOutside = TRUE , showCloseButton = TRUE)}
-    validate(need(nrow(em@result)!=0, "Error, dataset contains 0 rows after filtering. "))
-    
-
-    sendSweetAlert(session = session, title = "Notification",
-                   btn_labels = NA,
-                   text = "step1/4 has been completed", type = "warning",
-                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
-    
-    #create a GeneSetCollection using the gene-set analysis results
-    geneset_gsc = msigdb_mm[geneset_res]
-    
-    #compute gene-set overlap
-    gs_ovlap = computeMsigOverlap(geneset_gsc, thresh = 0.25)
-    #create an overlap network
-    gs_ovnet = computeMsigNetwork(gs_ovlap, msigdb_mm)
-    #plot the network
-    set.seed(36) #set seed for reproducible layout
-    
-    sendSweetAlert(session = session, title = "Notification",
-                   btn_labels = NA,
-                   text = "step 1/4 has been completed", type = "warning",
-                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
-    
-    
- 
-    #simulate gene-set statistics
-    geneset_stats = em@result$NES
-    names(geneset_stats) = geneset_res
-    head(geneset_stats)
-    
-    #plot the network and overlay gene-set statistics
-    set.seed(36) #set seed for reproducible layout
-    
-    
-    #identify clusters
-    grps = cluster_walktrap(gs_ovnet)
-    #extract clustering results
-    grps = groups(grps)
-    #sort by cluster size
-    grps = grps[order(sapply(grps, length), decreasing = TRUE)]
-    #plot the top 12 clusters
-    set.seed(36) #set seed for reproducible layout
-    
-    sendSweetAlert(session = session, title = "Notification",
-                   btn_labels = NA,
-                   text = "step 2/4 has been done", type = "warning",
-                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
-    
-  
-    genes = names(geneList)
-    gene_stats = unname(geneList)
-    names(gene_stats) = genes
-    
-   
-    #create independent plots
-    set.seed(36) #set seed for reproducible layout
-    p1 = plotMsigWordcloud(msigdb_mm, grps[1:6], type = 'Name')
-    p2 = plotMsigNetwork(gs_ovnet, markGroups = grps[1:6], genesetStat = geneset_stats)
-    p3 = plotGeneStats(gene_stats, msigdb_mm, grps[1:6]) +
-      geom_hline(yintercept = 0, colour = 2, lty = 2)
-    
-    sendSweetAlert(session = session, title = "Notification",
-                   btn_labels = NA,
-                   text = "step 3/4 has been done", type = "warning",
-                   closeOnClickOutside = FALSE , showCloseButton = FALSE)
-    
-    #combine using functions from ggpubr
-    mydata$visse1 <- ggarrange(p1, p2, p3, ncol = 3, common.legend = TRUE, legend = 'bottom')
-    
-    sendSweetAlert(session = session, title = "Notification",
-                   text = "Analysis is done!", type = "success",
-                   closeOnClickOutside = TRUE , showCloseButton = TRUE)
-  })
-
-  #visse UI
-  output$visseinput <- renderPlot({
-    req(mydata$visse1)
-    plot(mydata$visse1)
-  })
     
   ## Fgsea enrichment analysis ##---------------------------------------
   observeEvent(input$buttonfg, {
