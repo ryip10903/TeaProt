@@ -39,7 +39,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
                          menuSubItem("p-value & fold change", tabName = "PVALUE", icon= icon("info-circle")),
                          menuSubItem("annotations", tabName = "dugi", icon= icon("chart-bar")),
                          menuSubItem("enrichment", tabName = "genep",icon= icon("ellipsis-v")),
-                         menuSubItem("Fgsea analysis", tabName = "fgseaa"))
+                         menuSubItem("fgsea", tabName = "fgseaa"))
                 )
     ),
   
@@ -141,6 +141,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
                 
                 )  ) ),
       
+      # View annotated table tab
       tabItem(tabName = "view",        
               fluidRow(box(title = 'About the Table',solidHeader = TRUE, status = 'primary',
               HTML("<p align='justify'> User-uploaded input data is annotated with information from various sources.
@@ -157,7 +158,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
       
       tabItem(tabName = "ANALYSIS"),
       
-      ## P value
+      # P-value and fold-change distribution tab
       tabItem(tabName = "PVALUE",
         fluidRow( 
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
@@ -174,7 +175,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
           box( title = 'Distributions', plotOutput("histogram_pvalue") %>% withSpinner(), uiOutput("hist_download_ui")),
           box( title = 'Volcano plot', plotly::plotlyOutput("volcano_interactive") %>% withSpinner(), uiOutput("volcano_download_ui")  ))),
       
-      ##Drug interaction
+      # Drug interaction
       tabItem(tabName = "dugi", 
         fluidRow ( 
           box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary',
@@ -189,7 +190,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
         fluidRow( box(title = 'DisGeNet disease', width = 12, plotOutput("bargraph_disgenet") %>% withSpinner())),
         fluidRow( box(title = 'BRENDA enzymatic reactions', width = 12, plotOutput("bargraph_brenda") %>% withSpinner()))),
       
-    #Gene pathway 
+      # Gene pathway 
       tabItem(tabName = "genep",
         fluidRow(box(title = 'About the Analysis',solidHeader = TRUE, status = 'primary', 
         HTML("<p align='justify'> Analyses are performed to demonstrate the changes in gene expressions in relation to several annotations including (1) subcellular localization, (2) DisGeNet, (3) Drug-gene interactions and (4) International Mouse Phenotyping Consortium interactions. 
@@ -201,7 +202,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
         fluidRow( box(title = "IMPC genotype-phenotype Associations", plotOutput("contingency_impc") %>% withSpinner(), uiOutput("contingency_download_impc_ui"), width = 12))
         ),
               
-      #Fgsea
+      # Fgsea
       tabItem(tabName = "fgseaa", 
               
               # Row containing explanation and inputs
@@ -238,70 +239,47 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
 # Define server logic to read selected file ----
 server <- function(input, output, session) {
  
-  
   # Create a reactiveValues object called mydata
   mydata <- reactiveValues()
-
-  # The following code runs when a file is uploaded
-  # We want to load data, and annotate it with our databases here
-  # We first load the data based on its extension (.csv, .txt, .xlsx)
-  # Then we load our databases and join the user data with out provided databases
-  # Finally we save the df as a reactive object
   
-  observe({
-    print(input$tabs)
-  })
+  # Print the selected tab for testing purposes
+  observe({print(input$tabs)})
   
-  observe({
-    print(input$file)
-  })
+  # Print the uploaded file for testing purposes
+  observe({print(input$file)})
   
+  # Generate the interactive network or urPTMdb genesets
   output$network_d3 <- renderUI({
     
     gph_d3 <- readRDS(file = "data/urptmdb_network.rds")
-    
+
     networkD3::forceNetwork(Links = gph_d3$links, Nodes = gph_d3$nodes, Source = 'source', Target = 'target', NodeID = 'name', Group = 'group', zoom = TRUE, charge = -10, opacity = 0.9)
     
-  })
+    })
   
+  # Run tests once file is uploaded, save column names as input options, and reset all parameters and plots back to NULL
   observeEvent(input$file, {
+    
+    # Add code to set all reactiveValues back to NULL
+    mydata$protdf <- NULL
+    mydata$array <- NULL
+    mydata$gene_array <- NULL
+    mydata$visse1 <- NULL
+    mydata$fgsea_res <- NULL
+    mydata$fgsea_array <- NULL
+    mydata$fgsea_pathways <- NULL
+    mydata$fgsea_volcano <- NULL
+    mydata$fgsea_descriptiontable <- NULL
+    mydata$chisq_loc <- NULL
+    mydata$chisq_impc <- NULL
+    mydata$chisq_drug <- NULL
+    mydata$chisq_disgenet <- NULL
+    
     
     if(sub("^.*\\.","", input$file$datapath) %in% c("csv", "txt", "xls", "xlsx", "XLSX")){
     
-    if(sub("^.*\\.","", input$file$datapath) == "csv"){
-      tryCatch(
-        {
-          df <- read.csv(input$file$datapath, sep = ",", na.strings = c("NA", "Na", "NaN", "NAN", "na", "nan"))
-        },
-        error = function(e) {
-          stop(safeError(e))
-        }
-      )
+    df <- load_data(input$file$datapath)
       
-    } else if(sub("^.*\\.","", input$file$datapath) == "txt" | sub("^.*\\.","", input$file$datapath) == "tsv") {
-      tryCatch(
-        {
-          df <- read.csv(input$file$datapath, sep = "\t", na.strings = c("NA", "Na", "NaN", "NAN", "na", "nan"))
-        },
-        error = function(e) {
-          stop(safeError(e))
-        }
-      )
-    } else if(sub("^.*\\.","", input$file$datapath) == "xls" | 
-              sub("^.*\\.","", input$file$datapath) == "xlsx"|
-              sub("^.*\\.","", input$file$datapath) == "XLS" |
-              sub("^.*\\.","", input$file$datapath) == "XLSX") {
-      tryCatch(
-        {
-          df <- readxl::read_excel(path = input$file$datapath, guess_max = 21474836, na = c("NA", "Na", "NaN", "NAN", "na", "nan"))
-        },
-        error = function(e) {
-          stop(safeError(e))
-        }
-      )
-    }
-    
-    #df is user's uploaded value
     col_names <- colnames(as.data.frame(df))
     
     if(length(col_names) > 2){
@@ -321,71 +299,26 @@ server <- function(input, output, session) {
     
     }
     
-    # Add code to set all reactiveValues back to NULL
-    mydata$protdf <- NULL
-    mydata$array <- NULL
-    mydata$gene_array <- NULL
-    mydata$visse1 <- NULL
-    mydata$fgsea_res <- NULL
-    mydata$fgsea_array <- NULL
-    mydata$fgsea_pathways <- NULL
-    mydata$fgsea_volcano <- NULL
-    mydata$fgsea_descriptiontable <- NULL
-    mydata$chisq_loc <- NULL
-    mydata$chisq_impc <- NULL
-    mydata$chisq_drug <- NULL
-    mydata$chisq_disgenet <- NULL
     
   })
 
-  
+  # Report user parameter selection
   output$param_text <- renderText({
     paste("Uploaded file: ", input$file[1], "\n", "ID column: ", input$col_id, "\n", "p-value column: ", input$col_pval, "\n", "Fold-change column: ", input$col_fc, "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
   })
   
+  # Process data once the start button is pressed
   observeEvent(input$button, {
     
     req(input$file)
-    
-    
+
     sendSweetAlert(session = session, title = "Notification", 
                    text = "Data Mapping in progress", type = "warning",
                    btn_labels = NA,
                    closeOnClickOutside = FALSE, showCloseButton = FALSE)
     
-
-    if(sub("^.*\\.","", input$file$datapath) == "csv"){
-      tryCatch(
-        {
-          df <- read.csv(input$file$datapath, sep = ",", na.strings = c("NA", "Na", "NaN", "NAN", "na", "nan"))
-        },
-        error = function(e) {
-          stop(safeError(e))
-        }
-      )
-      
-    } else if(sub("^.*\\.","", input$file$datapath) == "txt" | sub("^.*\\.","", input$file$datapath) == "tsv") {
-      tryCatch(
-        {
-          df <- read.csv(input$file$datapath, sep = "\t", na.strings = c("NA", "Na", "NaN", "NAN", "na", "nan"))
-        },
-        error = function(e) {
-          stop(safeError(e))
-        }
-      )
-    } else if(sub("^.*\\.","", input$file$datapath) == "xls" | 
-              sub("^.*\\.","", input$file$datapath) == "xlsx"|
-              sub("^.*\\.","", input$file$datapath) == "XLS" |
-              sub("^.*\\.","", input$file$datapath) == "XLSX") {
-      tryCatch(
-        {
-          df <- readxl::read_excel(path = input$file$datapath, guess_max = 21474836, na = c("NA", "Na", "NaN", "NAN", "na", "nan"))
-        },
-        error = function(e) {
-          stop(safeError(e))
-        }
-      )
-    }
+    
+    df <- load_data(input$file$datapath)
     
   #df is user's uploaded value
     df <- as.data.frame(df) %>% dplyr::select(input$col_id, input$col_pval, input$col_fc)

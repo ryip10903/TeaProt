@@ -106,6 +106,55 @@ entrezmapping <- function(species){
 
 
 
+#' Load input data
+#'
+#' \code{load_data} Returns TRUE if the data is valid
+#'
+#' @param file A file location
+#' 
+#' @return A dataframe
+#'
+#' @examples
+#' load_data(file)
+#' 
+load_data <- function(file){
+  
+  if(sub("^.*\\.","", file) == "csv"){
+    tryCatch(
+      {
+        return(read.csv(file, sep = ",", na.strings = c("NA", "Na", "NaN", "NAN", "na", "nan")))
+      },
+      error = function(e) {
+        stop(safeError(e))
+      }
+    )
+    
+  } else if(sub("^.*\\.","", file) == "txt" | sub("^.*\\.","", file) == "tsv") {
+    tryCatch(
+      {
+        return(read.csv(file, sep = "\t", na.strings = c("NA", "Na", "NaN", "NAN", "na", "nan")))
+      },
+      error = function(e) {
+        stop(safeError(e))
+      }
+    )
+  } else if(sub("^.*\\.","", file) == "xls" | 
+            sub("^.*\\.","", file) == "xlsx"|
+            sub("^.*\\.","", file) == "XLS" |
+            sub("^.*\\.","", file) == "XLSX") {
+    tryCatch(
+      {
+        return(readxl::read_excel(path = file, guess_max = 21474836, na = c("NA", "Na", "NaN", "NAN", "na", "nan")))
+      },
+      error = function(e) {
+        stop(safeError(e))
+      }
+    )
+  }
+  
+}
+
+
 
 #' Test whether the input data is valid
 #'
