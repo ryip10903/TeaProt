@@ -238,6 +238,8 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
 
 # Define server logic to read selected file ----
 server <- function(input, output, session) {
+  
+  options(shiny.maxRequestSize=30*1024^2)
  
   # Create a reactiveValues object called mydata
   mydata <- reactiveValues()
