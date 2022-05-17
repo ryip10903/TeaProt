@@ -761,7 +761,7 @@ server <- function(input, output, session) {
     df[,3] <- formatC(as.data.frame(df)[,3], digits = 2, format = 'e')
     df[,4] <- formatC(as.data.frame(df)[,4], digits = 2, format = 'e')
     df[,5] <- formatC(as.data.frame(df)[,5], digits = 3) 
-    df[,7] <- formatC(as.data.frame(df)[,6], digits = 3) 
+    df[,6] <- formatC(as.data.frame(df)[,6], digits = 3) 
     df[,7] <- formatC(as.data.frame(df)[,7], digits = 3) 
 
     return(DT::datatable(df, extensions = 'Buttons', rownames = FALSE, options = list(dom = 'tpB', fixedColumns = TRUE, autoWidth = FALSE, pagingType = "numbers", scrollX = T, buttons = list(
@@ -1117,9 +1117,13 @@ server <- function(input, output, session) {
     
     contingency <- contingency[rowSums(contingency) != 0,]
     
+    x9 <<- contingency
+    
     chisq <- chisq.test(contingency)
     
     mydata$chisq_disgenet <- chisq
+    
+    x10 <<- chisq
     
     corrplot::corrplot(mydata$chisq_disgenet$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_disgenet$residuals)), ceiling(max(mydata$chisq_disgenet$residuals))))
   })
