@@ -972,16 +972,19 @@ server <- function(input, output, session) {
     
     contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(locs, "total")) %>% `colnames<-`(c("up", "down", "NS"))
     
-    contingency <- contingency[rowSums(contingency) != 0,]
+    contingency <- contingency[rowSums(contingency) != 0, apply(contingency, 2, sum) != 0]
     
-    chisq <- chisq.test(contingency)
-    
-    x0 <<- chisq
-    
-    mydata$chisq_loc <- chisq
-    
-    corrplot::corrplot(mydata$chisq_loc$residuals %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_loc$residuals)), ceiling(max(mydata$chisq_loc$residuals))))
-  })
+    if(is.matrix(contingency)){
+      
+      chisq <- chisq.test(contingency)
+      
+      mydata$chisq_loc <- chisq
+      
+      corrplot::corrplot(mydata$chisq_loc$residuals %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -.[[1]]) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_loc$residuals)), ceiling(max(mydata$chisq_loc$residuals))))
+      
+    }
+      
+      })
   
   output$contingency_impc <- renderPlot({
     req((mydata$protdf))
@@ -1009,14 +1012,19 @@ server <- function(input, output, session) {
     
     contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(procedure, "total")) %>% `colnames<-`(c("up", "down", "NS"))
     
-    contingency <- contingency[rowSums(contingency) != 0,]
+    contingency <- contingency[rowSums(contingency) != 0, apply(contingency, 2, sum) != 0]
     
-    chisq <- chisq.test(contingency)
-    
-    mydata$chisq_impc <- chisq
-    
-    corrplot::corrplot(mydata$chisq_impc$residuals %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_impc$residuals)), ceiling(max(mydata$chisq_impc$residuals))))
-  })
+    if(is.matrix(contingency)){
+      
+      chisq <- chisq.test(contingency)
+      
+      mydata$chisq_impc <- chisq
+      
+      corrplot::corrplot(mydata$chisq_impc$residuals %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -.[[1]]) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_impc$residuals)), ceiling(max(mydata$chisq_impc$residuals))))
+      
+    }
+      
+     })
   
   
   output$contingency_drug <- renderPlot({
@@ -1046,14 +1054,19 @@ server <- function(input, output, session) {
     
     contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(procedure, "total")) %>% `colnames<-`(c("up", "down", "NS"))
     
-    contingency <- contingency[rowSums(contingency) != 0,]
+    contingency <- contingency[rowSums(contingency) != 0, apply(contingency, 2, sum) != 0]
     
-    chisq <- chisq.test(contingency)
-    
-    mydata$chisq_drug <- chisq
-    
-    corrplot::corrplot(mydata$chisq_drug$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_drug$residuals)), ceiling(max(mydata$chisq_drug$residuals))))
-  })
+    if(is.matrix(contingency)){
+      
+      chisq <- chisq.test(contingency)
+      
+      mydata$chisq_drug <- chisq
+      
+      corrplot::corrplot(mydata$chisq_drug$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -.[[1]]) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_drug$residuals)), ceiling(max(mydata$chisq_drug$residuals))))
+      
+    }
+      
+     })
   
   
   output$contingency_download_drug_ui <- renderUI({
@@ -1081,7 +1094,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       svglite::svglite(filename = file, width = 15, height = 8)
-      corrplot::corrplot(mydata$chisq_drug$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_drug$residuals)), ceiling(max(mydata$chisq_drug$residuals))))
+      corrplot::corrplot(mydata$chisq_drug$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -.[[1]]) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_drug$residuals)), ceiling(max(mydata$chisq_drug$residuals))))
       dev.off()
     }
   )
@@ -1118,18 +1131,19 @@ server <- function(input, output, session) {
     
     contingency <- do.call(rbind, contingency) %>% `rownames<-`(c(procedure, "total")) %>% `colnames<-`(c("up", "down", "NS"))
     
-    contingency <- contingency[rowSums(contingency) != 0,]
+    contingency <- contingency[rowSums(contingency) != 0, apply(contingency, 2, sum) != 0]
     
-    x9 <<- contingency
-    
-    chisq <- chisq.test(contingency)
-    
-    mydata$chisq_disgenet <- chisq
-    
-    x10 <<- chisq
-    
-    corrplot::corrplot(mydata$chisq_disgenet$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_disgenet$residuals)), ceiling(max(mydata$chisq_disgenet$residuals))))
-  })
+    if(is.matrix(contingency)){
+      
+      chisq <- chisq.test(contingency)
+      
+      mydata$chisq_disgenet <- chisq
+      
+      corrplot::corrplot(mydata$chisq_disgenet$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -.[[1]]) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_disgenet$residuals)), ceiling(max(mydata$chisq_disgenet$residuals))))
+      
+    }
+
+    })
   
   
   output$contingency_download_disgenet_ui <- renderUI({
@@ -1157,7 +1171,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       svglite::svglite(filename = file, width = 15, height = 8)
-      corrplot::corrplot(mydata$chisq_disgenet$residuals %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_disgenet$residuals)), ceiling(max(mydata$chisq_disgenet$residuals))))
+      corrplot::corrplot(mydata$chisq_disgenet$residuals %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -.[[1]]) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_disgenet$residuals)), ceiling(max(mydata$chisq_disgenet$residuals))))
       dev.off()
     }
   )
@@ -1204,7 +1218,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       svglite::svglite(filename = file, width = 15, height = 8)
-      corrplot::corrplot(mydata$chisq_loc$residuals %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_loc$residuals)), ceiling(max(mydata$chisq_loc$residuals))))
+      corrplot::corrplot(mydata$chisq_loc$residuals %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -.[[1]]) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_loc$residuals)), ceiling(max(mydata$chisq_loc$residuals))))
       dev.off()
     }
   )
@@ -1237,7 +1251,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       svglite::svglite(filename = file, width = 15, height = 8)
-      corrplot::corrplot(mydata$chisq_impc$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -up) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_impc$residuals)), ceiling(max(mydata$chisq_impc$residuals))))
+      corrplot::corrplot(mydata$chisq_impc$residuals  %>% as.data.frame() %>% mutate(total = grepl("total", rownames(.))) %>% arrange(total, -.[[1]]) %>% dplyr::select(-total) %>% t, is.cor = FALSE, title = "", mar=c(0,0,1,0), col.lim = c(floor(min(mydata$chisq_impc$residuals)), ceiling(max(mydata$chisq_impc$residuals))))
       dev.off()
     }
   )
