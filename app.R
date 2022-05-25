@@ -59,20 +59,21 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
                   HTML("<center><h1>Welcome to TeaProt!</h1></center>"), 
                   HTML("<center><p>The online proteomics/transcriptomics analysis pipeline featuring novel underrepresented PTM genesets.</p></center>")),
               
-              fluidRow(
+              fluidRow(column(6, 
                 
                 # README box
-                box(status = 'primary', includeMarkdown("README.md")),
-                
+                div(class = "col-sm-12", div(class = "box box-primary", style = "padding-right: 5%; padding-left: 5%; font-size:110%", NULL, div(class = "box-body", shiny::includeMarkdown("README.md")))),
+              ),
+              column(6,
                 # Demo data box
-                box(title = "Demo data", status = 'primary', 
+                box(title = "Demo data", status = 'primary', width = 12,
                     
                     selectizeInput("demoset", label = NULL, choices = list("" ,"Mouse tongue data" = "Parker"), selected = "Parker", options = list(placeholder = 'Select dataset')), 
                     htmlOutput('demoref'), 
                     uiOutput("dl_demoset_ui")), 
                 
                 # Inputs box
-                box(title = "Inputs", status = 'primary', 
+                box(title = "Inputs", status = 'primary', width = 12,
                     
                     # Input: Select a file ----
                     fileInput("file", "Choose CSV File", multiple = FALSE, accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv", '.xls', '.xlsx')),
@@ -84,7 +85,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
                     selectizeInput(inputId = "col_pval", label = "Choose p-value column", choices = c(NULL), multiple = TRUE, selected = NULL, options = list(placeholder = "This is a placeholder", maxItems = 1)),  
                     
                     # Input: Select FC ----
-                    selectizeInput(inputId = "col_fc", label = "Choose fold-change column", choices = c(NULL), multiple = TRUE, selected = NULL, options = list(placeholder = "This is a placeholder", maxItems = 1)), 
+                    selectizeInput(inputId = "col_fc", label = "Choose log2 fold-change column", choices = c(NULL), multiple = TRUE, selected = NULL, options = list(placeholder = "This is a placeholder", maxItems = 1)), 
                     
                     # Input: Select a species ----
                     selectInput("species", "Choose Species", c("human", "mouse")),
@@ -93,7 +94,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
                     sliderTextInput(inputId = "param_pval", label = "Choose a p-value cutoff:", choices = c(1, 0.1, 0.05, 0.01, 0.001), selected = 0.05, grid = TRUE),
                     
                     # Input: Select significance cutoff ----
-                    sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5), selected = 0, grid = TRUE),
+                    sliderTextInput(inputId = "param_fc", label = "Choose a (log2) fold-change cutoff:", choices = seq(-5,5,0.5), selected = c(-1,1), grid = TRUE),
                     
                     # Display selected input parameters
                     verbatimTextOutput ("param_text"),
@@ -101,7 +102,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
                     # Start analysis button ----
                     actionButton("button", 'Start!', style='font-weight:600')
                     
-                    ))),
+                    )))),
       
       tabItem(tabName = "urptmdb", 
               
@@ -109,7 +110,7 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
                   HTML("<center><h1 style='color:White;'>urPTMdb</h1></center>"), 
                   HTML("<center><p style='color:White;'>The underrepresented PTM gene-set database.</p></center>")),
               
-              fluidRow(box(status = 'primary', includeMarkdown("README_urptmdb.md")),
+              fluidRow(column(width = 6, div(class = "col-sm-12", div(class = "box box-primary", style = "padding-right: 5%; padding-left: 5%; font-size:110%", NULL, div(class = "box-body", shiny::includeMarkdown("README_urptmdb.md"))))),
                 
                 column(width = 6,
                 box(title = "Download urPTMdb", status = 'primary', width = 12,
@@ -306,7 +307,7 @@ server <- function(input, output, session) {
 
   # Report user parameter selection
   output$param_text <- renderText({
-    paste("Uploaded file: ", input$file[1], "\n", "ID column: ", input$col_id, "\n", "p-value column: ", input$col_pval, "\n", "Fold-change column: ", input$col_fc, "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoff: ", input$param_fc, "\n" , sep="")
+    paste("Uploaded file: ", input$file[1], "\n", "ID column: ", input$col_id, "\n", "p-value column: ", input$col_pval, "\n", "Fold-change column: ", input$col_fc, "\n", "Selected species: ", input$species, "\n", "Selected p-value cutoff: ", input$param_pval, "\n", "Selected fold-change cutoffs: <", input$param_fc[1], " & >", input$param_fc[2], "\n" , sep="")
   })
   
   # Process data once the start button is pressed
@@ -423,8 +424,8 @@ server <- function(input, output, session) {
     db_brenda <- read.csv("database/BRENDA/brenda_processed.csv") %>% dplyr::select(entrez, reaction) %>% mutate(entrez = as.character(entrez))
     df <- left_join(df, db_brenda, by = c('EntrezGeneID' = "entrez"))
     
-    #Making columns used for contigency table
-    df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc) ~ "up", (pvalue < input$param_pval & fold_change < -(input$param_fc)) ~ "down", TRUE ~ "NS"))
+    #Making columns used for contingency table
+    df <- df %>% mutate(direction = case_when( (pvalue < input$param_pval & fold_change > input$param_fc[2]) ~ "up", (pvalue < input$param_pval & fold_change < (input$param_fc[1])) ~ "down", TRUE ~ "NS"))
     
   # Converting EntrezGeneID column into an array
   # So it can later be used for enrichment analysis
@@ -800,7 +801,7 @@ server <- function(input, output, session) {
   output$volcano_interactive <- plotly::renderPlotly({ 
     req(mydata$protdf, input$param_pval, input$param_fc)
     
-    p1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID, col = ((pvalue < isolate(input$param_pval)) & (abs(fold_change) > isolate(input$param_fc)) ))) + geom_point(alpha = 0.3) + scale_colour_manual(values = c("TRUE" = "red", "FALSE" = "skyblue")) + theme_bw() + theme(legend.position = "none"))
+    p1 <- plotly::ggplotly(ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID, col = ((pvalue < isolate(input$param_pval)) & (fold_change < isolate(input$param_fc[1]) | fold_change > isolate(input$param_fc[2])) ))) + geom_point(alpha = 0.3) + scale_colour_manual(values = c("TRUE" = "red", "FALSE" = "skyblue")) + theme_bw() + theme(legend.position = "none"))
     
     return(p1)
     })
@@ -816,7 +817,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       
-      p <- ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID, col = ((pvalue < isolate(input$param_pval)) & (abs(fold_change) > isolate(input$param_fc)) ))) + geom_point(alpha = 0.3) + scale_colour_manual(values = c("TRUE" = "red", "FALSE" = "skyblue")) + theme_bw() + theme(legend.position = "none")
+      p <- ggplot(isolate(mydata$protdf),aes(y=-log10(pvalue), x=fold_change, label = ID, col = ((pvalue < isolate(input$param_pval)) & (fold_change < isolate(input$param_fc[1]) | fold_change > isolate(input$param_fc[2])) ))) + geom_point(alpha = 0.3) + scale_colour_manual(values = c("TRUE" = "red", "FALSE" = "skyblue")) + theme_bw() + theme(legend.position = "none")
       
       svglite::svglite(filename = file, width = 2.5, height = 2.5)
       plot(p)
@@ -974,6 +975,8 @@ server <- function(input, output, session) {
     contingency <- contingency[rowSums(contingency) != 0,]
     
     chisq <- chisq.test(contingency)
+    
+    x0 <<- chisq
     
     mydata$chisq_loc <- chisq
     
