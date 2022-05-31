@@ -137,8 +137,10 @@ ui <- dashboardPage(skin = 'black', title = "TeaProt",
                     selectizeInput(inputId = "geneset_selected", label = "Select a geneset", choices = c(read.delim(file = "database/urPTMdb/urptmdb_latest.gmt")[,1]), multiple = FALSE, selected = NULL),
                     uiOutput("geneset_info")),
                 
-                box(title = "Geneset jaccard network", status = 'primary', width = 12, 
-                    uiOutput("network_d3"), HTML("Gene-set Jaccard index network of urPTMdb. The Jaccard index indicates the similarity between two gene-sets, where the connected nodes have an index > 0.15.")) 
+                tabBox(title = "Geneset network", id = 'tabbox2', width = 12, 
+                       tabPanel("Jaccard", uiOutput("network_d3_jaccard"), HTML("Gene-set Jaccard index network of urPTMdb. The Jaccard index indicates the similarity between two gene-sets, where the connected nodes have an index > 0.15. For more information regarding this metric, please visit https://en.wikipedia.org/wiki/Jaccard_index.")), 
+                       tabPanel("Szymkiewicz–Simpson ", uiOutput("network_d3_szymkiewicz"), HTML("Gene-set Szymkiewicz–Simpson coefficient network of urPTMdb. The Szymkiewicz–Simpson coefficient indicates the similarity between two gene-sets, where the connected nodes have a coefficient > 0.6. For more information regarding this metric, please visit https://en.wikipedia.org/wiki/Overlap_coefficient."))
+                    ) 
                 
                 )  ) ),
       
@@ -252,13 +254,22 @@ server <- function(input, output, session) {
   observe({print(input$file)})
   
   # Generate the interactive network or urPTMdb genesets
-  output$network_d3 <- renderUI({
+  output$network_d3_jaccard <- renderUI({
     
-    gph_d3 <- readRDS(file = "data/urptmdb_network.rds")
+    gph_d3 <- readRDS(file = "data/jaccard_urptmdb_network.rds")
 
     networkD3::forceNetwork(Links = gph_d3$links, Nodes = gph_d3$nodes, Source = 'source', Target = 'target', NodeID = 'name', Group = 'group', zoom = TRUE, charge = -10, opacity = 0.9)
     
     })
+  
+  # Generate the interactive network or urPTMdb genesets
+  output$network_d3_szymkiewicz <- renderUI({
+    
+    gph_d3 <- readRDS(file = "data/szymkiewicz_urptmdb_network.rds")
+    
+    networkD3::forceNetwork(Links = gph_d3$links, Nodes = gph_d3$nodes, Source = 'source', Target = 'target', NodeID = 'name', Group = 'group', zoom = TRUE, charge = -10, opacity = 0.9)
+    
+  })
   
   # Run tests once file is uploaded, save column names as input options, and reset all parameters and plots back to NULL
   observeEvent(input$file, {
