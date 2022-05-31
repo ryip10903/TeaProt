@@ -256,7 +256,7 @@ server <- function(input, output, session) {
   # Generate the interactive network or urPTMdb genesets
   output$network_d3_jaccard <- renderUI({
     
-    gph_d3 <- readRDS(file = "data/jaccard_urptmdb_network.rds")
+    gph_d3 <- readRDS(file = "data/jaccard_urptmdb_network.RDS")
 
     networkD3::forceNetwork(Links = gph_d3$links, Nodes = gph_d3$nodes, Source = 'source', Target = 'target', NodeID = 'name', Group = 'group', zoom = TRUE, charge = -10, opacity = 0.9)
     
@@ -265,7 +265,7 @@ server <- function(input, output, session) {
   # Generate the interactive network or urPTMdb genesets
   output$network_d3_szymkiewicz <- renderUI({
     
-    gph_d3 <- readRDS(file = "data/szymkiewicz_urptmdb_network.rds")
+    gph_d3 <- readRDS(file = "data/szymkiewicz_urptmdb_network.RDS")
     
     networkD3::forceNetwork(Links = gph_d3$links, Nodes = gph_d3$nodes, Source = 'source', Target = 'target', NodeID = 'name', Group = 'group', zoom = TRUE, charge = -10, opacity = 0.9)
     
