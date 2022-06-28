@@ -6,7 +6,7 @@
 <br>
 
 ### __Citation__
-<p>The TeaProt / urPTMdb manuscript is currently under review. We will update this section with citation details following publication.</p>
+<cite><a href="https://pubs.acs.org/doi/10.1021/acs.jproteome.2c00048" target="blank_"><b>Molendijk J, Yip R, Parker BL.</b> urPTMdb/TeaProt: Upstream and Downstream Proteomics Analysis. <em>J Proteome Res.</em> 2022 Jun 27. doi: 10.1021/acs.jproteome.2c00048. Epub ahead of print. PMID: 35759515.</a></cite>
 
 ---
 
